@@ -7,27 +7,34 @@ import (
 	"net/url"
 )
 
-type Message struct {
+type ChatRoom struct {
+	id      int
+	clients []*websocket.Conn
+}
+
+type ChatMessage struct {
 	clientId int
-	payload []byte
+	payload  []byte
 }
 
 type ChatServer struct {
-	Address string
-	Pattern string
-	conns map[int] *websocket.Conn
+	Address   string
+	Pattern   string
+	conns     map[int]*websocket.Conn
 	onConnect chan *websocket.Conn
-	onClose chan *Message
-	onMessage chan *Message
+	onClose   chan *ChatMessage
+	onMessage chan *ChatMessage
+	chatRooms []*ChatRoom
 }
 
 var upgrader = websocket.Upgrader{}
-var idGenerator = Generator{}
+var idConnGenerator = Generator{}
+var idRoomGenerator = Generator{}
 
 func (cs *ChatServer) Run() {
-	cs.conns = make(map[int] *websocket.Conn)
+	cs.conns = make(map[int]*websocket.Conn)
 	cs.onConnect = make(chan *websocket.Conn)
-	cs.onClose = make(chan *Message)
+	cs.onClose = make(chan *ChatMessage)
 
 	go func() {
 		http.HandleFunc(cs.Pattern, cs.connectionRequestHandler)
@@ -38,22 +45,22 @@ func (cs *ChatServer) Run() {
 	log.Println("Chat server is listening.")
 	for {
 		select {
-		case conn := <- cs.onConnect:
-			id := idGenerator.generateId()
+		case conn := <-cs.onConnect:
+			id := idConnGenerator.generateId()
 			cs.addConnection(conn, id)
-			log.Printf("New connection established: %d\n", id)
+			log.Printf("New connection established: %d.\n", id)
 			go cs.readFromConn(conn, id)
-		case msg := <- cs.onClose:
+		case msg := <-cs.onClose:
 			cs.closeAndRemoveConnection(msg.clientId)
 			log.Printf("Connection %d closed.\n", msg.clientId)
-		case msg := <- cs.onMessage:
-			log.Printf("New message received: %s\n", msg)
+		case msg := <-cs.onMessage:
+			log.Printf("New message received from client %d.\n", msg.clientId)
 		}
 	}
 }
 
 func (cs *ChatServer) connectionRequestHandler(responseWriter http.ResponseWriter, request *http.Request) {
-	upgrader.CheckOrigin = func(request *http.Request) bool { return  true } // TODO: implement check origin function
+	upgrader.CheckOrigin = func(request *http.Request) bool { return true } // TODO: implement check origin function
 	conn, err := upgrader.Upgrade(responseWriter, request, nil)
 	if err != nil {
 		log.Println(err)
@@ -64,7 +71,7 @@ func (cs *ChatServer) connectionRequestHandler(responseWriter http.ResponseWrite
 func (cs *ChatServer) readFromConn(conn *websocket.Conn, id int) {
 	for {
 		_, p, err := conn.ReadMessage()
-		msg:= &Message{clientId: id, payload: p}
+		msg := &ChatMessage{clientId: id, payload: p}
 		if err != nil {
 			log.Println(err)
 			cs.onClose <- msg
@@ -90,7 +97,7 @@ func (cs *ChatServer) closeAndRemoveConnection(id int) {
 type chatClient struct {
 	Address string
 	Pattern string
-	conn *websocket.Conn
+	conn    *websocket.Conn
 }
 
 func (cc *chatClient) Connect() {
@@ -103,11 +110,23 @@ func (cc *chatClient) Connect() {
 	cc.conn = c
 }
 
-func (cc *chatClient) SendMessage(message string){
+func (cc *chatClient) SendMessage(message string) {
 	err := cc.conn.WriteMessage(websocket.TextMessage, []byte(message))
 	if err != nil {
 		log.Println(err)
 	}
+}
+
+func (cc *chatClient) SendRawMessage(message []byte) {
+	err := cc.conn.WriteMessage(websocket.TextMessage, message)
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+func (cc *chatClient) JoinChatRoom(roonId int) {
+	msg := NewJoinMessage(roonId)
+	cc.SendRawMessage(msg)
 }
 
 func (cc *chatClient) Close() {
