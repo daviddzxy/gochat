@@ -12,7 +12,7 @@ type ChatRoom struct {
 	clients []*websocket.Conn
 }
 
-type ChatMessage struct {
+type ClientMessage struct {
 	clientId int
 	payload  []byte
 }
@@ -22,8 +22,8 @@ type ChatServer struct {
 	Pattern   string
 	conns     map[int]*websocket.Conn
 	onConnect chan *websocket.Conn
-	onClose   chan *ChatMessage
-	onMessage chan *ChatMessage
+	onClose   chan *ClientMessage
+	onMessage chan *ClientMessage
 	chatRooms []*ChatRoom
 }
 
@@ -34,7 +34,7 @@ var idRoomGenerator = Generator{}
 func (cs *ChatServer) Run() {
 	cs.conns = make(map[int]*websocket.Conn)
 	cs.onConnect = make(chan *websocket.Conn)
-	cs.onClose = make(chan *ChatMessage)
+	cs.onClose = make(chan *ClientMessage)
 
 	go func() {
 		http.HandleFunc(cs.Pattern, cs.connectionRequestHandler)
@@ -50,11 +50,21 @@ func (cs *ChatServer) Run() {
 			cs.addConnection(conn, id)
 			log.Printf("New connection established: %d.\n", id)
 			go cs.readFromConn(conn, id)
-		case msg := <-cs.onClose:
-			cs.closeAndRemoveConnection(msg.clientId)
-			log.Printf("Connection %d closed.\n", msg.clientId)
-		case msg := <-cs.onMessage:
-			log.Printf("New message received from client %d.\n", msg.clientId)
+		case clientMsg := <-cs.onClose:
+			cs.closeAndRemoveConnection(clientMsg.clientId)
+			log.Printf("Connection %d closed.\n", clientMsg.clientId)
+		case clientMsg := <-cs.onMessage:
+			log.Printf("New message received from client %d.\n", clientMsg.clientId)
+			msg, err := ParseMessage(clientMsg.payload)
+			if err != nil {
+				log.Printf("Unable to parse message %s.", clientMsg.payload)
+			}
+			switch t := msg.(type) {
+			case Join:
+				log.Printf("Join room %d.", t.ChatRoomId)
+			case CreateRoom:
+				log.Printf("Create new room.")
+			}
 		}
 	}
 }
@@ -71,7 +81,7 @@ func (cs *ChatServer) connectionRequestHandler(responseWriter http.ResponseWrite
 func (cs *ChatServer) readFromConn(conn *websocket.Conn, id int) {
 	for {
 		_, p, err := conn.ReadMessage()
-		msg := &ChatMessage{clientId: id, payload: p}
+		msg := &ClientMessage{clientId: id, payload: p}
 		if err != nil {
 			log.Println(err)
 			cs.onClose <- msg
@@ -126,6 +136,11 @@ func (cc *chatClient) SendRawMessage(message []byte) {
 
 func (cc *chatClient) JoinChatRoom(roonId int) {
 	msg := NewJoinMessage(roonId)
+	cc.SendRawMessage(msg)
+}
+
+func (cc *chatClient) CreateChatRoom() {
+	msg := NewCreateRoomMessage()
 	cc.SendRawMessage(msg)
 }
 

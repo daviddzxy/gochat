@@ -19,8 +19,20 @@ func TestParseJoinMessage(t *testing.T) {
 	if err != nil{
 		t.Error("Unable to parse Join message.")
 	}
-	_, ok := msg.(JoinMessage)
+	_, ok := msg.(Join)
 	if !ok {
-		t.Error("Message is not of type Join message.")
+		t.Error("Message is not of type Join.")
+	}
+}
+
+func TestParseCreateRoomMessage(t *testing.T) {
+	rawMessage := []byte("{\"messageType\":\"createRoom\",\"message\":{}}")
+	msg, err := ParseMessage(rawMessage)
+	if err != nil{
+		t.Error("Unable to parse CreateRoom message.")
+	}
+	_, ok := msg.(CreateRoom)
+	if !ok {
+		t.Error("Message is not of type CreateRoom.")
 	}
 }
