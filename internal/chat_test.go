@@ -21,18 +21,18 @@ func SetUpServerClient() (*ChatServer, *chatClient){
 
 func TestEstablishAndCloseConnection(t *testing.T) {
 	s, c := SetUpServerClient()
-	if len(s.conns) != 1 {
+	if len(s.clients) != 1 {
 		t.Error("Server does not contain a connection.")
 	}
 	c.Close()
 
 	maxAttempts := 3
 	currAttempt := 0
-	for len(s.conns) > 0 && currAttempt <= maxAttempts {
+	for len(s.clients) > 0 && currAttempt <= maxAttempts {
 		time.Sleep(100 * time.Millisecond)
 		currAttempt += 1
 	}
-	if len(s.conns) != 0 {
+	if len(s.clients) != 0 {
 		t.Error("Connection was not successfully closed.")
 	}
 }

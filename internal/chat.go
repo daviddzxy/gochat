@@ -7,34 +7,53 @@ import (
 	"net/url"
 )
 
-type ChatRoom struct {
+var idRoomGenerator = Generator{}
+
+type Room struct {
 	id      int
-	clients []*websocket.Conn
+	clients map[int]*Client
+}
+
+func NewRoom() *Room {
+	r := &Room{id: idRoomGenerator.generateId()}
+	r.clients = make(map[int]*Client)
+	return r
 }
 
 type ClientMessage struct {
-	clientId int
-	payload  []byte
+	clientId   int
+	rawMessage []byte
+}
+
+type Client struct {
+	id   int
+	conn *websocket.Conn
+}
+
+var idClientGenerator = Generator{}
+
+func NewClient(conn *websocket.Conn) *Client {
+	return &Client{id: idClientGenerator.generateId(), conn: conn}
 }
 
 type ChatServer struct {
 	Address   string
 	Pattern   string
-	conns     map[int]*websocket.Conn
+	clients   map[int]*Client
 	onConnect chan *websocket.Conn
 	onClose   chan *ClientMessage
 	onMessage chan *ClientMessage
-	chatRooms []*ChatRoom
+	chatRooms map[int]*Room
+	upgrader  *websocket.Upgrader
 }
 
-var upgrader = websocket.Upgrader{}
-var idConnGenerator = Generator{}
-var idRoomGenerator = Generator{}
-
 func (cs *ChatServer) Run() {
-	cs.conns = make(map[int]*websocket.Conn)
+	cs.clients = make(map[int]*Client)
+	cs.chatRooms = make(map[int]*Room)
 	cs.onConnect = make(chan *websocket.Conn)
 	cs.onClose = make(chan *ClientMessage)
+	cs.upgrader = &websocket.Upgrader{}
+	cs.upgrader.CheckOrigin = func(request *http.Request) bool { return true } // TODO: implement check origin function
 
 	go func() {
 		http.HandleFunc(cs.Pattern, cs.connectionRequestHandler)
@@ -46,42 +65,55 @@ func (cs *ChatServer) Run() {
 	for {
 		select {
 		case conn := <-cs.onConnect:
-			id := idConnGenerator.generateId()
-			cs.addConnection(conn, id)
-			log.Printf("New connection established: %d.\n", id)
-			go cs.readFromConn(conn, id)
+			c := NewClient(conn)
+			cs.clients[c.id] = c
+			log.Printf("New connection established: %d.\n", c.id)
+			go cs.readFromClient(c)
 		case clientMsg := <-cs.onClose:
-			cs.closeAndRemoveConnection(clientMsg.clientId)
+			cs.closeClient(clientMsg.clientId)
 			log.Printf("Connection %d closed.\n", clientMsg.clientId)
 		case clientMsg := <-cs.onMessage:
 			log.Printf("New message received from client %d.\n", clientMsg.clientId)
-			msg, err := ParseMessage(clientMsg.payload)
+			message, err := ParseClientMessages(clientMsg.rawMessage)
+			client := cs.clients[clientMsg.clientId]
 			if err != nil {
-				log.Printf("Unable to parse message %s.", clientMsg.payload)
+				cs.writeToClient(client, NewUnableToParseMessage())
+				log.Printf("Unable to parse message %s.\n", clientMsg.rawMessage)
 			}
-			switch t := msg.(type) {
+			switch m := message.(type) {
 			case Join:
-				log.Printf("Join room %d.", t.ChatRoomId)
+				chatRoomId := m.ChatRoomId
+				if cs.chatRooms[chatRoomId] != nil {
+					cs.chatRooms[chatRoomId].clients[client.id] = client
+					cs.writeToClient(client, NewSuccessJoinRoomMessage(chatRoomId))
+					log.Printf("Client %d successfully joined room %d.\n", client.id, chatRoomId)
+				} else {
+					cs.writeToClient(client, NewFailJoinRoomMessage(chatRoomId))
+					log.Printf("Client %d tried to join not exisiting room %d.\n", client.id, chatRoomId)
+				}
+				log.Printf("Client %d joined room %d.\n", client.id, m.ChatRoomId)
 			case CreateRoom:
-				log.Printf("Create new room.")
+				r := NewRoom()
+				cs.chatRooms[r.id] = r
+				cs.writeToClient(cs.clients[clientMsg.clientId], NewSuccessCreateRoomMessage(r.id))
+				log.Printf("New room has been created.\n")
 			}
 		}
 	}
 }
 
 func (cs *ChatServer) connectionRequestHandler(responseWriter http.ResponseWriter, request *http.Request) {
-	upgrader.CheckOrigin = func(request *http.Request) bool { return true } // TODO: implement check origin function
-	conn, err := upgrader.Upgrade(responseWriter, request, nil)
+	conn, err := cs.upgrader.Upgrade(responseWriter, request, nil)
 	if err != nil {
 		log.Println(err)
 	}
 	cs.onConnect <- conn
 }
 
-func (cs *ChatServer) readFromConn(conn *websocket.Conn, id int) {
+func (cs *ChatServer) readFromClient(c *Client) {
 	for {
-		_, p, err := conn.ReadMessage()
-		msg := &ClientMessage{clientId: id, payload: p}
+		_, p, err := c.conn.ReadMessage()
+		msg := &ClientMessage{clientId: c.id, rawMessage: p}
 		if err != nil {
 			log.Println(err)
 			cs.onClose <- msg
@@ -91,16 +123,19 @@ func (cs *ChatServer) readFromConn(conn *websocket.Conn, id int) {
 	}
 }
 
-func (cs *ChatServer) addConnection(conn *websocket.Conn, id int) {
-	cs.conns[id] = conn
+func (cs *ChatServer) writeToClient(c *Client, rawMessage []byte) {
+	err := c.conn.WriteMessage(websocket.TextMessage, rawMessage)
+	if err != nil {
+		log.Printf("Unable to send message %s to client %d.\n", string(rawMessage), c.id)
+	}
 }
 
-func (cs *ChatServer) closeAndRemoveConnection(id int) {
-	err := cs.conns[id].Close()
+func (cs *ChatServer) closeClient(id int) {
+	err := cs.clients[id].conn.Close()
 	if err != nil {
 		log.Println(err)
 	}
-	delete(cs.conns, id)
+	delete(cs.clients, id)
 }
 
 // chatClient is used for testing purposes only
