@@ -4,7 +4,6 @@ import (
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
-	"net/url"
 )
 
 var idRoomGenerator = Generator{}
@@ -74,13 +73,13 @@ func (cs *ChatServer) Run() {
 			log.Printf("Connection %d closed.\n", clientMsg.clientId)
 		case clientMsg := <-cs.onMessage:
 			log.Printf("New message received from client %d.\n", clientMsg.clientId)
-			message, err := ParseClientMessages(clientMsg.rawMessage)
+			msg, err := ParseClientMessages(clientMsg.rawMessage)
 			client := cs.clients[clientMsg.clientId]
 			if err != nil {
 				cs.writeToClient(client, NewUnableToParseMessage())
-				log.Printf("Unable to parse message %s.\n", clientMsg.rawMessage)
+				log.Printf("Unable to parse client message %s.\n", clientMsg.rawMessage)
 			}
-			switch m := message.(type) {
+			switch m := msg.(type) {
 			case Join:
 				chatRoomId := m.ChatRoomId
 				if cs.chatRooms[chatRoomId] != nil {
@@ -136,52 +135,4 @@ func (cs *ChatServer) closeClient(id int) {
 		log.Println(err)
 	}
 	delete(cs.clients, id)
-}
-
-// chatClient is used for testing purposes only
-type chatClient struct {
-	Address string
-	Pattern string
-	conn    *websocket.Conn
-}
-
-func (cc *chatClient) Connect() {
-	u := url.URL{Scheme: "ws", Host: cc.Address, Path: cc.Pattern}
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-	if err != nil {
-		log.Println(err)
-	}
-	log.Println("Connected to the chat server.")
-	cc.conn = c
-}
-
-func (cc *chatClient) SendMessage(message string) {
-	err := cc.conn.WriteMessage(websocket.TextMessage, []byte(message))
-	if err != nil {
-		log.Println(err)
-	}
-}
-
-func (cc *chatClient) SendRawMessage(message []byte) {
-	err := cc.conn.WriteMessage(websocket.TextMessage, message)
-	if err != nil {
-		log.Println(err)
-	}
-}
-
-func (cc *chatClient) JoinChatRoom(roonId int) {
-	msg := NewJoinMessage(roonId)
-	cc.SendRawMessage(msg)
-}
-
-func (cc *chatClient) CreateChatRoom() {
-	msg := NewCreateRoomMessage()
-	cc.SendRawMessage(msg)
-}
-
-func (cc *chatClient) Close() {
-	err := cc.conn.Close()
-	if err != nil {
-		log.Println(err)
-	}
 }

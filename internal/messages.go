@@ -19,22 +19,8 @@ type Join struct {
 	ChatRoomId int `json:"chatRoomId"`
 }
 
-func NewJoinMessage(chatRoomId int) []byte {
-	env := &Envelope{Type: JoinType}
-	env.Msg = &Join{ChatRoomId: chatRoomId}
-	jsonMsg, _ := json.Marshal(env)
-	return jsonMsg
-}
-
 type CreateRoom struct {
 	// TODO: meta room settings
-}
-
-func NewCreateRoomMessage() []byte {
-	env := &Envelope{Type: JoinType}
-	env.Msg = &CreateRoom{}
-	jsonMsg, _ := json.Marshal(env)
-	return jsonMsg
 }
 
 func ParseClientMessages(rawMessage []byte) (interface{}, error) {
@@ -65,7 +51,7 @@ func ParseClientMessages(rawMessage []byte) (interface{}, error) {
 	return parsedMsg, nil
 }
 
-// Messages used by server
+// Messages sent by server
 const (
 	SuccessCreateRoomType    string = "successCreateRoom"
 	SuccessJoinRoomType             = "successJoinRoom"
@@ -115,46 +101,4 @@ func NewUnableToParseMessage() []byte {
 	env.Msg = &UnableToParse{}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
-}
-
-func ParseServerMessages(rawMessage []byte) (interface{}, error) {
-	var msg json.RawMessage
-	env := Envelope{Msg: &msg}
-	err := json.Unmarshal(rawMessage, &env)
-	if err != nil {
-		return err, nil
-	}
-
-	var parsedMsg interface{}
-	switch env.Type {
-	case SuccessCreateRoomType:
-		var msgSuccessCreateRoom SuccessCreateRoom
-		err := json.Unmarshal(msg, &msgSuccessCreateRoom)
-		if err != nil {
-			return err, nil
-		}
-		parsedMsg = msgSuccessCreateRoom
-	case SuccessJoinRoomType:
-		var msgSuccessJoinRoom SuccessJoinRoom
-		err := json.Unmarshal(msg, &msgSuccessJoinRoom)
-		if err != nil {
-			return err, nil
-		}
-		parsedMsg = msgSuccessJoinRoom
-	case FailJoinRoomType:
-		var msgFailJoinRoom FailJoinRoom
-		err := json.Unmarshal(msg, &msgFailJoinRoom)
-		if err != nil {
-			return err, nil
-		}
-		parsedMsg = msgFailJoinRoom
-	case UnableToParseMessageType:
-		var msgUnableToParse UnableToParse
-		err := json.Unmarshal(msg, &msgUnableToParse)
-		if err != nil {
-			return err, nil
-		}
-		parsedMsg = msgUnableToParse
-	}
-	return parsedMsg, nil
 }

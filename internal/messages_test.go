@@ -4,14 +4,6 @@ import (
 	"testing"
 )
 
-func TestNewJoinMessage(t *testing.T) {
-	expectedMessage := "{\"messageType\":\"join\",\"message\":{\"chatRoomId\":1}}"
-	chatRoomId := 1
-	joinMsg := string(NewJoinMessage(chatRoomId))
-	if joinMsg != expectedMessage{
-		t.Error("Unexpected Join message structure.")
-	}
-}
 
 func TestParseJoinMessage(t *testing.T) {
 	rawMessage := []byte("{\"messageType\":\"join\",\"message\":{\"chatRoomId\":1}}")
