@@ -116,3 +116,45 @@ func NewUnableToParseMessage() []byte {
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }
+
+func ParseServerMessages(rawMessage []byte) (interface{}, error) {
+	var msg json.RawMessage
+	env := Envelope{Msg: &msg}
+	err := json.Unmarshal(rawMessage, &env)
+	if err != nil {
+		return err, nil
+	}
+
+	var parsedMsg interface{}
+	switch env.Type {
+	case SuccessCreateRoomType:
+		var msgSuccessCreateRoom SuccessCreateRoom
+		err := json.Unmarshal(msg, &msgSuccessCreateRoom)
+		if err != nil {
+			return err, nil
+		}
+		parsedMsg = msgSuccessCreateRoom
+	case SuccessJoinRoomType:
+		var msgSuccessJoinRoom SuccessJoinRoom
+		err := json.Unmarshal(msg, &msgSuccessJoinRoom)
+		if err != nil {
+			return err, nil
+		}
+		parsedMsg = msgSuccessJoinRoom
+	case FailJoinRoomType:
+		var msgFailJoinRoom FailJoinRoom
+		err := json.Unmarshal(msg, &msgFailJoinRoom)
+		if err != nil {
+			return err, nil
+		}
+		parsedMsg = msgFailJoinRoom
+	case UnableToParseMessageType:
+		var msgUnableToParse UnableToParse
+		err := json.Unmarshal(msg, &msgUnableToParse)
+		if err != nil {
+			return err, nil
+		}
+		parsedMsg = msgUnableToParse
+	}
+	return parsedMsg, nil
+}
