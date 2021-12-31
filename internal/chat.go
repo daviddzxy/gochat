@@ -80,7 +80,10 @@ func (cs *ChatServer) Run() {
 				log.Printf("Unable to parse client message %s.\n", clientMsg.rawMessage)
 			}
 			switch m := msg.(type) {
-			case Join:
+			case Text:
+				//check if client is in room
+				//broadcast message to other clients
+			case JoinRoom:
 				chatRoomId := m.ChatRoomId
 				if cs.chatRooms[chatRoomId] != nil {
 					cs.chatRooms[chatRoomId].clients[client.id] = client
@@ -105,6 +108,7 @@ func (cs *ChatServer) connectionRequestHandler(responseWriter http.ResponseWrite
 	conn, err := cs.upgrader.Upgrade(responseWriter, request, nil)
 	if err != nil {
 		log.Println(err)
+		return
 	}
 	cs.onConnect <- conn
 }

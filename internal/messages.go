@@ -12,15 +12,21 @@ type Envelope struct {
 // Messages sent by client
 const (
 	CreateRoomType string = "createRoom"
-	JoinType              = "join"
+	JoinRoomType          = "joinRoom"
+	TextType              = "text"
 )
 
-type Join struct {
+type JoinRoom struct {
 	ChatRoomId int `json:"chatRoomId"`
 }
 
 type CreateRoom struct {
 	// TODO: meta room settings
+}
+
+type Text struct {
+	ChatRoomId int `json:"chatRoomId"`
+	Text string `json:"text"`
 }
 
 func ParseClientMessages(rawMessage []byte) (interface{}, error) {
@@ -33,8 +39,8 @@ func ParseClientMessages(rawMessage []byte) (interface{}, error) {
 
 	var parsedMsg interface{}
 	switch env.Type {
-	case JoinType:
-		var joinMsg Join
+	case JoinRoomType:
+		var joinMsg JoinRoom
 		err := json.Unmarshal(msg, &joinMsg)
 		if err != nil {
 			return err, nil
@@ -47,6 +53,13 @@ func ParseClientMessages(rawMessage []byte) (interface{}, error) {
 			return err, nil
 		}
 		parsedMsg = createRoomMsg
+	case TextType:
+		var textMsg Text
+		err := json.Unmarshal(msg, &textMsg)
+		if err != nil {
+			return err, nil
+		}
+		parsedMsg = textMsg
 	}
 	return parsedMsg, nil
 }
