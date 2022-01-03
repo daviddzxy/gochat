@@ -51,13 +51,14 @@ func (cs *ChatServer) Run() {
 	cs.chatRooms = make(map[int]*Room)
 	cs.onConnect = make(chan *websocket.Conn)
 	cs.onClose = make(chan *ClientMessage)
+	cs.onMessage = make(chan *ClientMessage)
 	cs.upgrader = &websocket.Upgrader{}
 	cs.upgrader.CheckOrigin = func(request *http.Request) bool { return true } // TODO: implement check origin function
 
 	go func() {
 		http.HandleFunc(cs.Pattern, cs.connectionRequestHandler)
 		if err := http.ListenAndServe(cs.Address, nil); err != http.ErrServerClosed {
-			log.Fatalln(err)
+			log.Fatalf("Could not start web socket server: %s\n", err)
 		}
 	}()
 	log.Println("Chat server is listening.")
