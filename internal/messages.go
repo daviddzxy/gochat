@@ -5,15 +5,15 @@ import (
 )
 
 type Envelope struct {
-	Type string      `json:"messageType"`
-	Msg  interface{} `json:"message"`
+	Type string      `json:"type"`
+	Data interface{} `json:"data"`
 }
 
 // Messages sent by client
 const (
-	CreateRoomType string = "createRoom"
-	JoinRoomType          = "joinRoom"
-	TextType              = "text"
+	CreateRoomType string = "CREATE_ROOM"
+	JoinRoomType          = "JOIN_ROOM"
+	TextType              = "TEXT"
 )
 
 type JoinRoom struct {
@@ -21,17 +21,17 @@ type JoinRoom struct {
 }
 
 type CreateRoom struct {
-	// TODO: meta room settings
+	ChatRoomName string `json:"chatRoomName"`
 }
 
 type Text struct {
-	ChatRoomId int `json:"chatRoomId"`
-	Text string `json:"text"`
+	ChatRoomId int    `json:"chatRoomId"`
+	Text       string `json:"text"`
 }
 
 func ParseClientMessages(rawMessage []byte) (interface{}, error) {
 	var msg json.RawMessage
-	env := Envelope{Msg: &msg}
+	env := Envelope{Data: &msg}
 	err := json.Unmarshal(rawMessage, &env)
 	if err != nil {
 		return err, nil
@@ -40,36 +40,36 @@ func ParseClientMessages(rawMessage []byte) (interface{}, error) {
 	var parsedMsg interface{}
 	switch env.Type {
 	case JoinRoomType:
-		var joinMsg JoinRoom
-		err := json.Unmarshal(msg, &joinMsg)
+		var joinData JoinRoom
+		err := json.Unmarshal(msg, &joinData)
 		if err != nil {
 			return err, nil
 		}
-		parsedMsg = joinMsg
+		parsedMsg = joinData
 	case CreateRoomType:
-		var createRoomMsg CreateRoom
-		err := json.Unmarshal(msg, &createRoomMsg)
+		var createRoomData CreateRoom
+		err := json.Unmarshal(msg, &createRoomData)
 		if err != nil {
 			return err, nil
 		}
-		parsedMsg = createRoomMsg
+		parsedMsg = createRoomData
 	case TextType:
-		var textMsg Text
-		err := json.Unmarshal(msg, &textMsg)
+		var textData Text
+		err := json.Unmarshal(msg, &textData)
 		if err != nil {
 			return err, nil
 		}
-		parsedMsg = textMsg
+		parsedMsg = textData
 	}
 	return parsedMsg, nil
 }
 
 // Messages sent by server
 const (
-	SuccessCreateRoomType    string = "successCreateRoom"
-	SuccessJoinRoomType             = "successJoinRoom"
-	FailJoinRoomType                = "failJoinRoom"
-	UnableToParseMessageType        = "unableToParse"
+	SuccessCreateRoomType    string = "SUCCESS_CREATE_ROOM"
+	SuccessJoinRoomType             = "SUCCESS_JOIN_ROOM"
+	FailJoinRoomType                = "FAIL_JOIN_ROOM"
+	UnableToParseMessageType        = "UNABLE_TO_PARSE"
 )
 
 type SuccessCreateRoom struct {
@@ -78,7 +78,7 @@ type SuccessCreateRoom struct {
 
 func NewSuccessCreateRoomMessage(chatRoomId int) []byte {
 	env := &Envelope{Type: SuccessCreateRoomType}
-	env.Msg = &SuccessCreateRoom{chatRoomId}
+	env.Data = &SuccessCreateRoom{chatRoomId}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }
@@ -89,7 +89,7 @@ type SuccessJoinRoom struct {
 
 func NewSuccessJoinRoomMessage(chatRoomId int) []byte {
 	env := &Envelope{Type: SuccessJoinRoomType}
-	env.Msg = &SuccessJoinRoom{chatRoomId}
+	env.Data = &SuccessJoinRoom{chatRoomId}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }
@@ -100,7 +100,7 @@ type FailJoinRoom struct {
 
 func NewFailJoinRoomMessage(chatRoomId int) []byte {
 	env := &Envelope{Type: FailJoinRoomType}
-	env.Msg = &FailJoinRoom{chatRoomId}
+	env.Data = &FailJoinRoom{chatRoomId}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }
@@ -111,7 +111,7 @@ type UnableToParse struct {
 
 func NewUnableToParseMessage() []byte {
 	env := &Envelope{Type: UnableToParseMessageType}
-	env.Msg = &UnableToParse{}
+	env.Data = &UnableToParse{}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }
