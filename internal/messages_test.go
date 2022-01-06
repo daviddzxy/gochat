@@ -5,7 +5,7 @@ import (
 )
 
 func TestParseJoinMessage(t *testing.T) {
-	rawMessage := []byte("{\"type\":\"JOIN_ROOM\",\"data\":{\"chatRoomId\":1}}")
+	rawMessage := []byte("{\"type\":\"JOIN_ROOM\",\"data\":{\"roomName\":\"text\", \"userName\": \"text\"}}")
 	msg, err := ParseClientMessages(rawMessage)
 	if err != nil {
 		t.Error("Unable to parse Join message.\n")
@@ -16,20 +16,8 @@ func TestParseJoinMessage(t *testing.T) {
 	}
 }
 
-func TestParseCreateRoomMessage(t *testing.T) {
-	rawMessage := []byte("{\"type\":\"CREATE_ROOM\",\"data\":{}}")
-	msg, err := ParseClientMessages(rawMessage)
-	if err != nil {
-		t.Error("Unable to parse CreateRoom message.\n")
-	}
-	_, ok := msg.(CreateRoom)
-	if !ok {
-		t.Error("Message is not of type CreateRoom.\n")
-	}
-}
-
 func TestParseTextMessage(t *testing.T) {
-	rawMessage := []byte("{\"type\":\"TEXT\",\"data\":{\"chatRoomId\": 1, \"text\": \"Sample text\"}}")
+	rawMessage := []byte("{\"type\":\"TEXT\",\"data\":{\"chatRoomId\": 1, \"text\": \"text\"}}")
 	msg, err := ParseClientMessages(rawMessage)
 	if err != nil {
 		t.Error("Unable to parse Text message.\n")
@@ -40,30 +28,13 @@ func TestParseTextMessage(t *testing.T) {
 	}
 }
 
-func TestNewSuccessCreateRoomMessage(t *testing.T) {
-	expectedMessage := "{\"type\":\"SUCCESS_CREATE_ROOM\",\"data\":{\"chatRoomId\":1}}"
-	chatRoomId := 1
-	joinMsg := string(NewSuccessCreateRoomMessage(chatRoomId))
-	if joinMsg != expectedMessage {
-		t.Error("Unexpected SuccessCreateRoom message structure.\n")
-	}
-}
-
 func TestNewSuccessJoinRoomMessage(t *testing.T) {
-	expectedMessage := "{\"type\":\"SUCCESS_JOIN_ROOM\",\"data\":{\"chatRoomId\":1}}"
-	chatRoomId := 1
-	joinMsg := string(NewSuccessJoinRoomMessage(chatRoomId))
+	expectedMessage := "{\"type\":\"SUCCESS_JOIN_ROOM\",\"data\":{\"roomName\":\"text\",\"userNames\":[\"text\"]}}"
+	roomName := "text"
+	userNames := []string{"text"}
+	joinMsg := string(NewSuccessJoinRoomMessage(roomName, userNames))
 	if joinMsg != expectedMessage {
 		t.Error("Unexpected SuccessJoinRoom message structure.\n")
-	}
-}
-
-func TestNewFailJoinRoomTypeMessage(t *testing.T) {
-	expectedMessage := "{\"type\":\"FAIL_JOIN_ROOM\",\"data\":{\"chatRoomId\":1}}"
-	chatRoomId := 1
-	joinMsg := string(NewFailJoinRoomMessage(chatRoomId))
-	if joinMsg != expectedMessage {
-		t.Error("Unexpected FailJoinRoom message structure.\n")
 	}
 }
 

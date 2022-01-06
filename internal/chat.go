@@ -6,17 +6,27 @@ import (
 	"net/http"
 )
 
-var idRoomGenerator = Generator{}
-
 type Room struct {
-	id      int
-	clients map[int]*Client
+	name        string
+	clients     map[int]*Client
+	clientNames map[int]string
 }
 
-func NewRoom() *Room {
-	r := &Room{id: idRoomGenerator.generateId()}
+func NewRoom(name string) *Room {
+	r := &Room{name: name}
 	r.clients = make(map[int]*Client)
+	r.clientNames = make(map[int]string)
 	return r
+}
+
+func (r *Room) getClientNames() []string {
+	clientNames := make([]string, len(r.clients))
+	index := 0
+	for _, name := range r.clientNames {
+		clientNames[index] = name
+		index += 1
+	}
+	return clientNames
 }
 
 type ClientMessage struct {
@@ -42,13 +52,13 @@ type ChatServer struct {
 	onConnect chan *websocket.Conn
 	onClose   chan *ClientMessage
 	onMessage chan *ClientMessage
-	chatRooms map[int]*Room
+	chatRooms map[string]*Room
 	upgrader  *websocket.Upgrader
 }
 
 func (cs *ChatServer) Run() {
 	cs.clients = make(map[int]*Client)
-	cs.chatRooms = make(map[int]*Room)
+	cs.chatRooms = make(map[string]*Room)
 	cs.onConnect = make(chan *websocket.Conn)
 	cs.onClose = make(chan *ClientMessage)
 	cs.onMessage = make(chan *ClientMessage)
@@ -61,7 +71,7 @@ func (cs *ChatServer) Run() {
 			log.Fatalf("Could not start web socket server: %s\n", err)
 		}
 	}()
-	log.Println("Chat server is listening.")
+	log.Printf("Chat server is listening on %s.\n", cs.Address)
 	for {
 		select {
 		case conn := <-cs.onConnect:
@@ -72,6 +82,7 @@ func (cs *ChatServer) Run() {
 		case clientMsg := <-cs.onClose:
 			cs.closeClient(clientMsg.clientId)
 			log.Printf("Connection %d closed.\n", clientMsg.clientId)
+			// TODO: remove clients from rooms
 		case clientMsg := <-cs.onMessage:
 			log.Printf("New message received from client %d.\n", clientMsg.clientId)
 			msg, err := ParseClientMessages(clientMsg.rawMessage)
@@ -85,21 +96,19 @@ func (cs *ChatServer) Run() {
 				//check if client is in room
 				//broadcast message to other clients
 			case JoinRoom:
-				chatRoomId := m.ChatRoomId
-				if cs.chatRooms[chatRoomId] != nil {
-					cs.chatRooms[chatRoomId].clients[client.id] = client
-					cs.writeToClient(client, NewSuccessJoinRoomMessage(chatRoomId))
-					log.Printf("Client %d successfully joined room %d.\n", client.id, chatRoomId)
-				} else {
-					cs.writeToClient(client, NewFailJoinRoomMessage(chatRoomId))
-					log.Printf("Client %d tried to join not exisiting room %d.\n", client.id, chatRoomId)
+				roomName := m.RoomName
+				userName := m.UserName
+				var chatRoom *Room
+				if cs.chatRooms[roomName] == nil {
+					chatRoom = NewRoom(roomName)
+					cs.chatRooms[chatRoom.name] = chatRoom
+					log.Printf("New room %s has been created.\n", roomName)
 				}
-				log.Printf("Client %d joined room %d.\n", client.id, m.ChatRoomId)
-			case CreateRoom:
-				r := NewRoom()
-				cs.chatRooms[r.id] = r
-				cs.writeToClient(cs.clients[clientMsg.clientId], NewSuccessCreateRoomMessage(r.id))
-				log.Printf("New room has been created.\n")
+				chatRoom = cs.chatRooms[roomName]
+				chatRoom.clients[client.id] = client
+				chatRoom.clientNames[client.id] = userName
+				cs.writeToClient(client, NewSuccessJoinRoomMessage(roomName, chatRoom.getClientNames()))
+				log.Printf("Client %d joined room %s with name %s.\n", client.id, roomName, userName)
 			}
 		}
 	}
