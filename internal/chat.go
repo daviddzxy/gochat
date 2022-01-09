@@ -7,8 +7,9 @@ import (
 )
 
 type Room struct {
-	name        string
-	clients     map[int]*Client
+	name    string
+	clients map[int]*Client
+	// Stores client's name in chat room
 	clientNames map[int]string
 }
 
@@ -17,6 +18,16 @@ func NewRoom(name string) *Room {
 	r.clients = make(map[int]*Client)
 	r.clientNames = make(map[int]string)
 	return r
+}
+
+func (r *Room) addClient(c *Client, clientName string) {
+	r.clients[c.id] = c
+	r.clientNames[c.id] = clientName
+}
+
+func (r *Room) removeClient(id int) {
+	delete(r.clients, id)
+	delete(r.clientNames, id)
 }
 
 func (r *Room) getClientNames() []string {
@@ -84,7 +95,7 @@ func (cs *ChatServer) Run() {
 			log.Printf("Connection %d closed.\n", clientMsg.clientId)
 			// TODO: remove clients from rooms
 		case clientMsg := <-cs.onMessage:
-			log.Printf("New message received from client %d.\n", clientMsg.clientId)
+			log.Printf("New message %s received from client %d.\n", string(clientMsg.rawMessage), clientMsg.clientId)
 			msg, err := ParseClientMessages(clientMsg.rawMessage)
 			client := cs.clients[clientMsg.clientId]
 			if err != nil {
@@ -105,11 +116,12 @@ func (cs *ChatServer) Run() {
 					log.Printf("New room %s has been created.\n", roomName)
 				}
 				chatRoom = cs.chatRooms[roomName]
-				chatRoom.clients[client.id] = client
-				chatRoom.clientNames[client.id] = userName
-				cs.writeToClient(client, NewSuccessJoinRoomMessage(roomName))
-				cs.writeToClient(client, NewClientNamesMessage(roomName, chatRoom.getClientNames()))
-				log.Printf("Client %d joined room %s with name %s.\n", client.id, roomName, userName)
+				if chatRoom.clients[client.id] == nil {
+					chatRoom.addClient(client, m.UserName)
+					cs.writeToClient(client, NewSuccessJoinRoomMessage(roomName))
+					cs.writeToClient(client, NewClientNamesMessage(roomName, chatRoom.getClientNames()))
+					log.Printf("Client %d joined room %s with name %s.\n", client.id, roomName, userName)
+				}
 			}
 		}
 	}
