@@ -20,16 +20,6 @@ func NewRoom(name string) *Room {
 	return r
 }
 
-func (r *Room) addClient(c *Client, clientName string) {
-	r.clients[c.id] = c
-	r.clientNames[c.id] = clientName
-}
-
-func (r *Room) removeClient(id int) {
-	delete(r.clients, id)
-	delete(r.clientNames, id)
-}
-
 func (r *Room) getClientNames() []string {
 	clientNames := make([]string, len(r.clients))
 	index := 0
@@ -106,23 +96,26 @@ func (cs *ChatServer) Run() {
 				//check if client is in room
 				//broadcast message to other clients
 			case JoinRoom:
-				roomName := m.RoomName
-				userName := m.UserName
-				var chatRoom *Room
-				if cs.chatRooms[roomName] == nil {
-					chatRoom = NewRoom(roomName)
-					cs.chatRooms[chatRoom.name] = chatRoom
-					log.Printf("New room %s has been created.\n", roomName)
-				}
-				chatRoom = cs.chatRooms[roomName]
-				if chatRoom.clients[client.id] == nil {
-					chatRoom.addClient(client, m.UserName)
-					cs.writeToClient(client, NewSuccessJoinRoomMessage(roomName))
-					cs.writeToClient(client, NewClientNamesMessage(roomName, chatRoom.getClientNames()))
-					log.Printf("Client %d joined room %s with name %s.\n", client.id, roomName, userName)
-				}
+				cs.handleJoinRoomMessage(m, client)
 			}
 		}
+	}
+}
+
+func (cs *ChatServer) handleJoinRoomMessage(m JoinRoom, c *Client) {
+	var chatRoom *Room
+	if cs.chatRooms[m.RoomName] == nil {
+		chatRoom = NewRoom(m.RoomName)
+		cs.chatRooms[chatRoom.name] = chatRoom
+		log.Printf("New room %s has been created.\n", m.RoomName)
+	}
+	chatRoom = cs.chatRooms[m.RoomName]
+	if chatRoom.clients[c.id] == nil {
+		chatRoom.clients[c.id] = c
+		chatRoom.clientNames[c.id] = m.UserName
+		cs.writeToClient(c, NewSuccessJoinRoomMessage(m.RoomName))
+		cs.writeToClient(c, NewClientNamesMessage(m.RoomName, chatRoom.getClientNames()))
+		log.Printf("Client %d joined room %s with name %s.\n", c.id, m.RoomName, m.UserName)
 	}
 }
 
