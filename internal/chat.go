@@ -108,6 +108,7 @@ func (cs *ChatServer) Run() {
 				chatRoom.clients[client.id] = client
 				chatRoom.clientNames[client.id] = userName
 				cs.writeToClient(client, NewSuccessJoinRoomMessage(roomName))
+				cs.writeToClient(client, NewClientNamesMessage(roomName, chatRoom.getClientNames()))
 				log.Printf("Client %d joined room %s with name %s.\n", client.id, roomName, userName)
 			}
 		}
@@ -141,6 +142,8 @@ func (cs *ChatServer) writeToClient(c *Client, rawMessage []byte) {
 	if err != nil {
 		log.Printf("Unable to send message %s to client %d.\n", string(rawMessage), c.id)
 	}
+	log.Printf("Message %s sent to client %d\n", string(rawMessage), c.id)
+	// TODO: return and handle error if write failed
 }
 
 func (cs *ChatServer) closeClient(id int) {

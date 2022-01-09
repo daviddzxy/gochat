@@ -37,6 +37,16 @@ func TestNewSuccessJoinRoomMessage(t *testing.T) {
 	}
 }
 
+func TestNewNewClientNamesMessage(t *testing.T) {
+	expectedMessage := "{\"type\":\"GET_ALL_CLIENT_NAMES\",\"data\":{\"roomName\":\"room1\",\"clientNames\":[\"client1\",\"client2\"]}}"
+	roomName := "room1"
+	clientNames := []string{"client1", "client2"}
+	joinMsg := string(NewClientNamesMessage(roomName, clientNames))
+	if joinMsg != expectedMessage {
+		t.Error("Unexpected SuccessJoinRoom message structure.\n")
+	}
+}
+
 func TestNewUnableToParseMessage(t *testing.T) {
 	expectedMessage := "{\"type\":\"UNABLE_TO_PARSE\",\"data\":{}}"
 	joinMsg := string(NewUnableToParseMessage())

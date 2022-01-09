@@ -57,6 +57,7 @@ func ParseClientMessages(rawMessage []byte) (interface{}, error) {
 const (
 	SuccessJoinRoomType      string = "SUCCESS_JOIN_ROOM"
 	UnableToParseMessageType        = "UNABLE_TO_PARSE"
+	GetAllClientNamesType           = "GET_ALL_CLIENT_NAMES"
 )
 
 type SuccessCreateRoom struct {
@@ -67,9 +68,21 @@ type SuccessJoinRoom struct {
 	RoomName string `json:"roomName"`
 }
 
+type GetAllClientNames struct {
+	RoomName    string   `json:"roomName"`
+	ClientNames []string `json:"clientNames"`
+}
+
 func NewSuccessJoinRoomMessage(roomName string) []byte {
 	env := &Envelope{Type: SuccessJoinRoomType}
 	env.Data = &SuccessJoinRoom{roomName}
+	jsonMsg, _ := json.Marshal(env)
+	return jsonMsg
+}
+
+func NewClientNamesMessage(roomName string, clientNames []string) []byte {
+	env := &Envelope{Type: GetAllClientNamesType}
+	env.Data = &GetAllClientNames{roomName, clientNames}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }
