@@ -97,11 +97,10 @@ func (cs *ChatServer) Run() {
 		case clientMsg := <-cs.onMessage:
 			log.Printf("New message %s received from client %d.\n", string(clientMsg.rawMessage), clientMsg.clientId)
 			msg, err := ParseClientMessages(clientMsg.rawMessage)
-			client := cs.clients[clientMsg.clientId]
 			if err != nil {
-				cs.writeToClient(client, NewUnableToParseMessage())
 				log.Printf("Unable to parse client message %s.\n", clientMsg.rawMessage)
 			}
+			client := cs.clients[clientMsg.clientId]
 			switch m := msg.(type) {
 			case Text:
 				//check if client is in room

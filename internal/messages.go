@@ -55,9 +55,8 @@ func ParseClientMessages(rawMessage []byte) (interface{}, error) {
 
 // Messages sent by server
 const (
-	SuccessJoinRoomType      string = "SUCCESS_JOIN_ROOM"
-	UnableToParseMessageType        = "UNABLE_TO_PARSE"
-	GetAllClientNamesType           = "GET_ALL_CLIENT_NAMES"
+	SuccessJoinRoomType   string = "SUCCESS_JOIN_ROOM"
+	GetAllClientNamesType        = "GET_ALL_CLIENT_NAMES"
 )
 
 type SuccessCreateRoom struct {
@@ -89,11 +88,4 @@ func NewClientNamesMessage(roomName string, clientNames []string) []byte {
 
 type UnableToParse struct {
 	// TODO: send info message
-}
-
-func NewUnableToParseMessage() []byte {
-	env := &Envelope{Type: UnableToParseMessageType}
-	env.Data = &UnableToParse{}
-	jsonMsg, _ := json.Marshal(env)
-	return jsonMsg
 }

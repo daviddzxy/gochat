@@ -46,11 +46,3 @@ func TestNewNewClientNamesMessage(t *testing.T) {
 		t.Error("Unexpected SuccessJoinRoom message structure.\n")
 	}
 }
-
-func TestNewUnableToParseMessage(t *testing.T) {
-	expectedMessage := "{\"type\":\"UNABLE_TO_PARSE\",\"data\":{}}"
-	joinMsg := string(NewUnableToParseMessage())
-	if joinMsg != expectedMessage {
-		t.Error("Unexpected UnableToParse message structure.\n")
-	}
-}
