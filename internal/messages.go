@@ -64,13 +64,12 @@ type SuccessCreateRoom struct {
 }
 
 type SuccessJoinRoom struct {
-	RoomName  string   `json:"roomName"`
-	UserNames []string `json:"userNames"`
+	RoomName string `json:"roomName"`
 }
 
-func NewSuccessJoinRoomMessage(roomName string, userNames []string) []byte {
+func NewSuccessJoinRoomMessage(roomName string) []byte {
 	env := &Envelope{Type: SuccessJoinRoomType}
-	env.Data = &SuccessJoinRoom{roomName, userNames}
+	env.Data = &SuccessJoinRoom{roomName}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }

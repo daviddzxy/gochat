@@ -107,7 +107,7 @@ func (cs *ChatServer) Run() {
 				chatRoom = cs.chatRooms[roomName]
 				chatRoom.clients[client.id] = client
 				chatRoom.clientNames[client.id] = userName
-				cs.writeToClient(client, NewSuccessJoinRoomMessage(roomName, chatRoom.getClientNames()))
+				cs.writeToClient(client, NewSuccessJoinRoomMessage(roomName))
 				log.Printf("Client %d joined room %s with name %s.\n", client.id, roomName, userName)
 			}
 		}

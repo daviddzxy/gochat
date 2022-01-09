@@ -29,10 +29,9 @@ func TestParseTextMessage(t *testing.T) {
 }
 
 func TestNewSuccessJoinRoomMessage(t *testing.T) {
-	expectedMessage := "{\"type\":\"SUCCESS_JOIN_ROOM\",\"data\":{\"roomName\":\"text\",\"userNames\":[\"text\"]}}"
+	expectedMessage := "{\"type\":\"SUCCESS_JOIN_ROOM\",\"data\":{\"roomName\":\"text\"}}"
 	roomName := "text"
-	userNames := []string{"text"}
-	joinMsg := string(NewSuccessJoinRoomMessage(roomName, userNames))
+	joinMsg := string(NewSuccessJoinRoomMessage(roomName))
 	if joinMsg != expectedMessage {
 		t.Error("Unexpected SuccessJoinRoom message structure.\n")
 	}
