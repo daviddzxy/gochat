@@ -5,6 +5,6 @@ import (
 )
 
 func main() {
-	s := internal.ChatServer{Address:"localhost:8080", Pattern:"/"}
-	s.Run()
+	cs := internal.NewChatServer("localhost:8080", "/")
+	cs.Run()
 }

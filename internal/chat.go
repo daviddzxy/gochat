@@ -57,7 +57,8 @@ type ChatServer struct {
 	upgrader  *websocket.Upgrader
 }
 
-func (cs *ChatServer) Run() {
+func NewChatServer(address string, pattern string) *ChatServer {
+	cs := &ChatServer{Address: address, Pattern: pattern}
 	cs.clients = make(map[int]*Client)
 	cs.chatRooms = make(map[string]*Room)
 	cs.onConnect = make(chan *websocket.Conn)
@@ -65,7 +66,10 @@ func (cs *ChatServer) Run() {
 	cs.onMessage = make(chan *ClientMessage)
 	cs.upgrader = &websocket.Upgrader{}
 	cs.upgrader.CheckOrigin = func(request *http.Request) bool { return true } // TODO: implement check origin function
+	return cs
+}
 
+func (cs *ChatServer) Run() {
 	go func() {
 		http.HandleFunc(cs.Pattern, cs.connectionRequestHandler)
 		if err := http.ListenAndServe(cs.Address, nil); err != http.ErrServerClosed {
