@@ -16,8 +16,8 @@ const (
 )
 
 type JoinRoom struct {
-	RoomName string `json:"roomName"`
-	UserName string `json:"userName"`
+	RoomName   string `json:"roomName"`
+	ClientName string `json:"clientName"`
 }
 
 type Text struct {
@@ -55,8 +55,8 @@ func ParseClientMessages(rawMessage []byte) (interface{}, error) {
 
 // Messages sent by server
 const (
-	SuccessJoinRoomType   string = "SUCCESS_JOIN_ROOM"
-	GetAllClientNamesType        = "GET_ALL_CLIENT_NAMES"
+	SuccessJoinRoomType string = "SUCCESS_JOIN_ROOM"
+	ClientListType             = "CLIENT_LIST"
 )
 
 type SuccessCreateRoom struct {
@@ -80,7 +80,7 @@ func NewSuccessJoinRoomMessage(roomName string) []byte {
 }
 
 func NewClientNamesMessage(roomName string, clientNames []string) []byte {
-	env := &Envelope{Type: GetAllClientNamesType}
+	env := &Envelope{Type: ClientListType}
 	env.Data = &GetAllClientNames{roomName, clientNames}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg

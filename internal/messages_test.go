@@ -38,7 +38,7 @@ func TestNewSuccessJoinRoomMessage(t *testing.T) {
 }
 
 func TestNewNewClientNamesMessage(t *testing.T) {
-	expectedMessage := "{\"type\":\"GET_ALL_CLIENT_NAMES\",\"data\":{\"roomName\":\"room1\",\"clientNames\":[\"client1\",\"client2\"]}}"
+	expectedMessage := "{\"type\":\"CLIENT_LIST\",\"data\":{\"roomName\":\"room1\",\"clientNames\":[\"client1\",\"client2\"]}}"
 	roomName := "room1"
 	clientNames := []string{"client1", "client2"}
 	joinMsg := string(NewClientNamesMessage(roomName, clientNames))
