@@ -21,7 +21,7 @@ func (r *Room) getClientNames() []string {
 	clientNames := make([]string, len(r.clients))
 	index := 0
 	for _, c := range r.clients {
-		clientNames[index] = c.clientNameByRoomName[r.name]
+		clientNames[index] = c.clientName
 		index += 1
 	}
 	return clientNames
@@ -33,34 +33,34 @@ type ClientMessage struct {
 }
 
 type Client struct {
-	id   int
-	conn *websocket.Conn
-	// Maps room id to clients name in give room
-	clientNameByRoomName map[string]string
+	id         int
+	conn       *websocket.Conn
+	clientName string
 }
 
 var idClientGenerator = Generator{}
 
 func NewClient(conn *websocket.Conn) *Client {
-	c := &Client{id: idClientGenerator.generateId(), conn: conn}
-	c.clientNameByRoomName = make(map[string]string)
+	c := &Client{id: idClientGenerator.generateId(), conn: conn, clientName: ""}
 	return c
 }
 
 type ChatServer struct {
-	Address   string
-	Pattern   string
-	clients   map[int]*Client
-	onConnect chan *websocket.Conn
-	onClose   chan *ClientMessage
-	onMessage chan *ClientMessage
-	chatRooms map[string]*Room
-	upgrader  *websocket.Upgrader
+	Address       string
+	Pattern       string
+	clients       map[int]*Client
+	clientsByRoom map[int]*Room
+	onConnect     chan *websocket.Conn
+	onClose       chan *ClientMessage
+	onMessage     chan *ClientMessage
+	chatRooms     map[string]*Room
+	upgrader      *websocket.Upgrader
 }
 
 func NewChatServer(address string, pattern string) *ChatServer {
 	cs := &ChatServer{Address: address, Pattern: pattern}
 	cs.clients = make(map[int]*Client)
+	cs.clientsByRoom = make(map[int]*Room)
 	cs.chatRooms = make(map[string]*Room)
 	cs.onConnect = make(chan *websocket.Conn)
 	cs.onClose = make(chan *ClientMessage)
@@ -104,6 +104,8 @@ func (cs *ChatServer) Run() {
 				//broadcast message to other clients
 			case JoinRoom:
 				cs.handleJoinRoomMessage(m, client)
+			case LeaveRoom:
+				cs.handleLeaveRoomMessage(m, client)
 			}
 		}
 	}
@@ -119,15 +121,23 @@ func (cs *ChatServer) handleJoinRoomMessage(m JoinRoom, c *Client) {
 	r = cs.chatRooms[m.RoomName]
 	if r.clients[c.id] == nil {
 		r.clients[c.id] = c
-		c.clientNameByRoomName[r.name] = m.ClientName
+		c.clientName = m.ClientName
+		cs.clientsByRoom[c.id] = r
 		cs.writeToClient(c, NewSuccessJoinRoomMessage(m.RoomName))
-		cs.writeToClient(c, NewClientNamesMessage(m.RoomName, r.getClientNames()))
+		cs.writeToClient(c, NewClientNamesMessage(r.getClientNames()))
 		log.Printf("Client %d joined room %s with name %s.\n", c.id, m.RoomName, m.ClientName)
 	}
 }
 
-func removeClientFromAllRooms(id int) {
-
+func (cs *ChatServer) handleLeaveRoomMessage(m LeaveRoom, c *Client) {
+	chatRoom := cs.chatRooms[m.RoomName]
+	if chatRoom != nil && chatRoom.clients[c.id] != nil {
+		delete(chatRoom.clients, c.id)
+		delete(cs.clientsByRoom, c.id)
+		c.clientName = ""
+		cs.writeToClient(c, NewSuccessLeaveRoomMessage(m.RoomName))
+		log.Printf("Client %d left room %s.\n", c.id, m.RoomName)
+	}
 }
 
 func (cs *ChatServer) connectionRequestHandler(responseWriter http.ResponseWriter, request *http.Request) {

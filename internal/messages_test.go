@@ -5,7 +5,7 @@ import (
 )
 
 func TestParseJoinMessage(t *testing.T) {
-	rawMessage := []byte("{\"type\":\"JOIN_ROOM\",\"data\":{\"roomName\":\"text\", \"userName\": \"text\"}}")
+	rawMessage := []byte("{\"type\":\"JOIN_ROOM\",\"data\":{\"roomName\":\"text\", \"clientName\": \"text\"}}")
 	msg, err := ParseClientMessages(rawMessage)
 	if err != nil {
 		t.Error("Unable to parse Join message.\n")
@@ -38,10 +38,9 @@ func TestNewSuccessJoinRoomMessage(t *testing.T) {
 }
 
 func TestNewNewClientNamesMessage(t *testing.T) {
-	expectedMessage := "{\"type\":\"CLIENT_LIST\",\"data\":{\"roomName\":\"room1\",\"clientNames\":[\"client1\",\"client2\"]}}"
-	roomName := "room1"
+	expectedMessage := "{\"type\":\"CLIENT_LIST\",\"data\":{\"clientNames\":[\"client1\",\"client2\"]}}"
 	clientNames := []string{"client1", "client2"}
-	joinMsg := string(NewClientNamesMessage(roomName, clientNames))
+	joinMsg := string(NewClientNamesMessage(clientNames))
 	if joinMsg != expectedMessage {
 		t.Error("Unexpected SuccessJoinRoom message structure.\n")
 	}
