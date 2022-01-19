@@ -11,9 +11,8 @@ type Envelope struct {
 
 // Messages sent by client
 const (
-	JoinRoomType  = "JOIN_ROOM"
-	LeaveRoomType = "LEAVE_ROOM"
-	TextType      = "TEXT"
+	JoinRoomType = "JOIN_ROOM"
+	TextType     = "TEXT"
 )
 
 type JoinRoom struct {
@@ -46,13 +45,6 @@ func ParseClientMessages(rawMessage []byte) (interface{}, error) {
 			return nil, err
 		}
 		parsedMsg = joinRoomData
-	case LeaveRoomType:
-		var leaveRoomData LeaveRoom
-		err := json.Unmarshal(msg, &leaveRoomData)
-		if err != nil {
-			return nil, err
-		}
-		parsedMsg = leaveRoomData
 	case TextType:
 		var textData Text
 		err := json.Unmarshal(msg, &textData)
@@ -66,9 +58,8 @@ func ParseClientMessages(rawMessage []byte) (interface{}, error) {
 
 // Messages sent by server
 const (
-	SuccessJoinRoomType  string = "SUCCESS_JOIN_ROOM"
-	SuccessLeaveRoomType        = "SUCCESS_LEAVE_ROOM"
-	ClientListType              = "CLIENT_LIST"
+	SuccessJoinRoomType string = "SUCCESS_JOIN_ROOM"
+	ClientListType             = "CLIENT_LIST"
 )
 
 type SuccessJoinRoom struct {
@@ -81,13 +72,6 @@ type GetAllClientNames struct {
 
 func NewSuccessJoinRoomMessage(roomName string) []byte {
 	env := &Envelope{Type: SuccessJoinRoomType}
-	env.Data = &SuccessJoinRoom{roomName}
-	jsonMsg, _ := json.Marshal(env)
-	return jsonMsg
-}
-
-func NewSuccessLeaveRoomMessage(roomName string) []byte {
-	env := &Envelope{Type: SuccessLeaveRoomType}
 	env.Data = &SuccessJoinRoom{roomName}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg

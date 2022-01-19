@@ -104,8 +104,6 @@ func (cs *ChatServer) Run() {
 				//broadcast message to other clients
 			case JoinRoom:
 				cs.handleJoinRoomMessage(m, client)
-			case LeaveRoom:
-				cs.handleLeaveRoomMessage(m, client)
 			}
 		}
 	}
@@ -126,17 +124,6 @@ func (cs *ChatServer) handleJoinRoomMessage(m JoinRoom, c *Client) {
 		cs.writeToClient(c, NewSuccessJoinRoomMessage(m.RoomName))
 		cs.writeToClient(c, NewClientNamesMessage(r.getClientNames()))
 		log.Printf("Client %d joined room %s with name %s.\n", c.id, m.RoomName, m.ClientName)
-	}
-}
-
-func (cs *ChatServer) handleLeaveRoomMessage(m LeaveRoom, c *Client) {
-	chatRoom := cs.chatRooms[m.RoomName]
-	if chatRoom != nil && chatRoom.clients[c.id] != nil {
-		delete(chatRoom.clients, c.id)
-		delete(cs.clientsByRoom, c.id)
-		c.clientName = ""
-		cs.writeToClient(c, NewSuccessLeaveRoomMessage(m.RoomName))
-		log.Printf("Client %d left room %s.\n", c.id, m.RoomName)
 	}
 }
 
