@@ -11,8 +11,8 @@ type Envelope struct {
 
 // Messages sent by client
 const (
-	JoinRoomType = "JOIN_ROOM"
-	TextType     = "TEXT"
+	JoinRoomType        = "JOIN_ROOM"
+	SendTextMessageType = "SEND_TEXT_MESSAGE"
 )
 
 type JoinRoom struct {
@@ -24,7 +24,7 @@ type LeaveRoom struct {
 	RoomName string `json:"roomName"`
 }
 
-type Text struct {
+type SendTextMessage struct {
 	Text string `json:"text"`
 }
 
@@ -45,8 +45,8 @@ func ParseClientMessages(rawMessage []byte) (interface{}, error) {
 			return nil, err
 		}
 		parsedMsg = joinRoomData
-	case TextType:
-		var textData Text
+	case SendTextMessageType:
+		var textData SendTextMessage
 		err := json.Unmarshal(msg, &textData)
 		if err != nil {
 			return nil, err
@@ -58,8 +58,9 @@ func ParseClientMessages(rawMessage []byte) (interface{}, error) {
 
 // Messages sent by server
 const (
-	SuccessJoinRoomType string = "SUCCESS_JOIN_ROOM"
-	ClientListType             = "CLIENT_LIST"
+	SuccessJoinRoomType    string = "SUCCESS_JOIN_ROOM"
+	ClientListType                = "CLIENT_LIST"
+	ReceiveTextMessageType        = "RECEIVE_TEXT_MESSAGE"
 )
 
 type SuccessJoinRoom struct {
@@ -68,6 +69,12 @@ type SuccessJoinRoom struct {
 
 type GetAllClientNames struct {
 	ClientNames []string `json:"clientNames"`
+}
+
+type ReceiveTextMessage struct {
+	Text       string `json:"text"`
+	ClientName string `json:"clientName"`
+	Id         int    `json:"id"`
 }
 
 func NewSuccessJoinRoomMessage(roomName string) []byte {
@@ -80,6 +87,13 @@ func NewSuccessJoinRoomMessage(roomName string) []byte {
 func NewClientNamesMessage(clientNames []string) []byte {
 	env := &Envelope{Type: ClientListType}
 	env.Data = &GetAllClientNames{clientNames}
+	jsonMsg, _ := json.Marshal(env)
+	return jsonMsg
+}
+
+func NewReceiveTextMessage(text string, clientName string, id int) []byte {
+	env := &Envelope{Type: ReceiveTextMessageType}
+	env.Data = &ReceiveTextMessage{text, clientName, id}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }

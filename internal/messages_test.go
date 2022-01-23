@@ -17,12 +17,12 @@ func TestParseJoinMessage(t *testing.T) {
 }
 
 func TestParseTextMessage(t *testing.T) {
-	rawMessage := []byte("{\"type\":\"TEXT\",\"data\":{\"chatRoomId\": 1, \"text\": \"text\"}}")
+	rawMessage := []byte("{\"type\":\"SEND_TEXT_MESSAGE\",\"data\":{\"text\": \"text\"}}")
 	msg, err := ParseClientMessages(rawMessage)
 	if err != nil {
 		t.Error("Unable to parse Text message.\n")
 	}
-	_, ok := msg.(Text)
+	_, ok := msg.(SendTextMessage)
 	if !ok {
 		t.Error("Message is not of type Text.\n")
 	}

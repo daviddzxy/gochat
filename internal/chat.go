@@ -4,7 +4,10 @@ import (
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
+	"sync"
 )
+
+// TODO clean up the chat server api
 
 type Room struct {
 	name    string
@@ -39,6 +42,7 @@ type Client struct {
 }
 
 var idClientGenerator = Generator{}
+var idMessageGenerator = Generator{}
 
 func NewClient(conn *websocket.Conn) *Client {
 	c := &Client{id: idClientGenerator.generateId(), conn: conn, clientName: ""}
@@ -99,9 +103,8 @@ func (cs *ChatServer) Run() {
 			}
 			client := cs.clients[clientMsg.clientId]
 			switch m := msg.(type) {
-			case Text:
-				//check if client is in room
-				//broadcast message to other clients
+			case SendTextMessage:
+				cs.handleSendTextMessage(m, client)
 			case JoinRoom:
 				cs.handleJoinRoomMessage(m, client)
 			}
@@ -124,6 +127,13 @@ func (cs *ChatServer) handleJoinRoomMessage(m JoinRoom, c *Client) {
 		cs.writeToClient(c, NewSuccessJoinRoomMessage(m.RoomName))
 		cs.writeToClient(c, NewClientNamesMessage(r.getClientNames()))
 		log.Printf("Client %d joined room %s with name %s.\n", c.id, m.RoomName, m.ClientName)
+	}
+}
+
+func (cs *ChatServer) handleSendTextMessage(m SendTextMessage, c *Client) {
+	room := cs.clientsByRoom[c.id]
+	if room != nil {
+		cs.broadcastMessage(room, NewReceiveTextMessage(m.Text, c.clientName, idMessageGenerator.generateId()))
 	}
 }
 
@@ -156,6 +166,18 @@ func (cs *ChatServer) writeToClient(c *Client, rawMessage []byte) {
 	}
 	log.Printf("Message %s sent to client %d\n", string(rawMessage), c.id)
 	// TODO: return and handle error if write failed
+}
+
+func (cs *ChatServer) broadcastMessage(r *Room, rawMessage []byte) {
+	wg := sync.WaitGroup{}
+	wg.Add(len(r.clients))
+	for _, c := range r.clients {
+		go func(c *Client) {
+			defer wg.Done()
+			cs.writeToClient(c, rawMessage)
+		}(c)
+	}
+	wg.Wait()
 }
 
 func (cs *ChatServer) closeClient(id int) {
