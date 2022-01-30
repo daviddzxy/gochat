@@ -1,13 +1,12 @@
 package internal
 
 import (
+	"errors"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
 	"sync"
 )
-
-// TODO clean up the chat server api
 
 type Room struct {
 	name    string
@@ -90,50 +89,99 @@ func (cs *ChatServer) Run() {
 			log.Printf("New connection established: %d.\n", c.id)
 			go cs.readFromClient(c)
 		case clientMsg := <-cs.onClose:
-			// TODO: remove clients from rooms
-			// Remove client from rooms
-			// Broadcast that client left
+			_ = cs.removeClientFromRoom(clientMsg.clientId)
 			cs.closeClient(clientMsg.clientId)
 			log.Printf("Connection %d closed.\n", clientMsg.clientId)
 		case clientMsg := <-cs.onMessage:
 			log.Printf("New message %s received from client %d.\n", string(clientMsg.rawMessage), clientMsg.clientId)
-			msg, err := ParseClientMessages(clientMsg.rawMessage)
+			message, err := ParseClientMessages(clientMsg.rawMessage)
 			if err != nil {
 				log.Printf("Unable to parse client message %s.\n", clientMsg.rawMessage)
 			}
 			client := cs.clients[clientMsg.clientId]
-			switch m := msg.(type) {
-			case SendTextMessage:
-				cs.handleSendTextMessage(m, client)
-			case JoinRoom:
-				cs.handleJoinRoomMessage(m, client)
+			switch message.Type {
+			case TextType:
+				textData, _ := message.Data.(Text)
+				cs.handleTextMessage(textData, client)
+			case JoinType:
+				joinData, _ := message.Data.(Join)
+				cs.handleJoinMessage(joinData, client)
+			case PartType:
+				cs.handlePartMessage(client)
+			case ClientsType:
+				cs.handleClientsMessage(client)
 			}
 		}
 	}
 }
 
-func (cs *ChatServer) handleJoinRoomMessage(m JoinRoom, c *Client) {
-	var r *Room
-	if cs.chatRooms[m.RoomName] == nil {
-		r = NewRoom(m.RoomName)
-		cs.chatRooms[r.name] = r
-		log.Printf("New room %s has been created.\n", m.RoomName)
+func (cs *ChatServer) handleJoinMessage(data Join, c *Client) {
+	err := cs.addClientToRoom(c.id, data.RoomName)
+	if err != nil && errors.Is(err, ClientAlreadyInRoomError) {
+		_ = cs.removeClientFromRoom(c.id)
+		_ = cs.addClientToRoom(c.id, data.RoomName)
 	}
-	r = cs.chatRooms[m.RoomName]
-	if r.clients[c.id] == nil {
-		r.clients[c.id] = c
-		c.clientName = m.ClientName
-		cs.clientsByRoom[c.id] = r
-		cs.writeToClient(c, NewSuccessJoinRoomMessage(m.RoomName))
-		cs.writeToClient(c, NewClientNamesMessage(r.getClientNames()))
-		log.Printf("Client %d joined room %s with name %s.\n", c.id, m.RoomName, m.ClientName)
+	cs.writeToClient(c, NewSuccessJoinMessage(data.RoomName))
+	log.Printf("Client %d joined room %s with name %s.\n", c.id, data.RoomName, data.ClientName)
+}
+
+func (cs *ChatServer) handlePartMessage(c *Client) {
+	if err := cs.removeClientFromRoom(c.id); err == nil {
+		cs.writeToClient(c, NewSuccessPartMessage())
+		log.Printf("Client %d left room %s.\n", c.id, cs.clientsByRoom[c.id].name)
+	} else {
+		log.Println(err)
 	}
 }
 
-func (cs *ChatServer) handleSendTextMessage(m SendTextMessage, c *Client) {
+func (cs *ChatServer) handleClientsMessage(c *Client) {
 	room := cs.clientsByRoom[c.id]
 	if room != nil {
-		cs.broadcastMessage(room, NewReceiveTextMessage(m.Text, c.clientName, idMessageGenerator.generateId()))
+		cs.writeToClient(c, NewClientsMessage(room.getClientNames()))
+	}
+}
+
+func (cs *ChatServer) removeClientFromRoom(clientId int) error {
+	r := cs.clientsByRoom[clientId]
+	c := cs.clients[clientId]
+	if r != nil {
+		delete(r.clients, c.id)
+		delete(cs.clientsByRoom, c.id)
+		log.Printf("Client %d left room %s.\n", c.id, r.name)
+		if len(r.clients) == 0 {
+			delete(cs.chatRooms, r.name)
+			log.Printf("Room %s was deleted.\n", r.name)
+		}
+		return nil
+	} else {
+		return ClientDoesNotBelongToAnyRoomError
+	}
+}
+
+func (cs *ChatServer) addClientToRoom(clientId int, roomName string) error {
+	c := cs.clients[clientId]
+	r := cs.clientsByRoom[clientId]
+	if r == nil {
+		if cs.chatRooms[roomName] == nil {
+			r = NewRoom(roomName)
+			cs.chatRooms[r.name] = r
+			log.Printf("New room %s has been created.\n", roomName)
+		}
+		r.clients[c.id] = c
+		cs.clientsByRoom[c.id] = r
+		log.Printf("Client %d joined room %s.\n", c.id, roomName)
+		return nil
+	} else {
+		return errors.New("client is already in a room")
+	}
+}
+
+func (cs *ChatServer) handleTextMessage(data Text, c *Client) {
+	room := cs.clientsByRoom[c.id]
+	if room != nil {
+		receiveTextMessage := NewReceiveTextMessage(data.Text, c.clientName, idMessageGenerator.generateId())
+		cs.broadcastMessage(room, receiveTextMessage)
+		log.Printf("Message %s broadcaseted in room %s", receiveTextMessage, room.name)
 	}
 }
 
@@ -165,7 +213,6 @@ func (cs *ChatServer) writeToClient(c *Client, rawMessage []byte) {
 		log.Printf("Unable to send message %s to client %d.\n", string(rawMessage), c.id)
 	}
 	log.Printf("Message %s sent to client %d\n", string(rawMessage), c.id)
-	// TODO: return and handle error if write failed
 }
 
 func (cs *ChatServer) broadcastMessage(r *Room, rawMessage []byte) {

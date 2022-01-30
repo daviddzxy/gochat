@@ -4,96 +4,98 @@ import (
 	"encoding/json"
 )
 
-type Envelope struct {
+type Message struct {
 	Type string      `json:"type"`
 	Data interface{} `json:"data"`
 }
 
 // Messages sent by client
 const (
-	JoinRoomType        = "JOIN_ROOM"
-	SendTextMessageType = "SEND_TEXT_MESSAGE"
+	JoinType    = "JOIN"
+	PartType    = "PART"
+	TextType    = "TEXT"
+	ClientsType = "CLIENTS"
 )
 
-type JoinRoom struct {
+type Join struct {
 	RoomName   string `json:"roomName"`
 	ClientName string `json:"clientName"`
 }
 
-type LeaveRoom struct {
-	RoomName string `json:"roomName"`
-}
-
-type SendTextMessage struct {
+type Text struct {
 	Text string `json:"text"`
 }
 
-func ParseClientMessages(rawMessage []byte) (interface{}, error) {
+func ParseClientMessages(rawMessage []byte) (*Message, error) {
 	var msg json.RawMessage
-	env := Envelope{Data: &msg}
+	env := &Message{Data: &msg}
 	err := json.Unmarshal(rawMessage, &env)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 
-	var parsedMsg interface{}
 	switch env.Type {
-	case JoinRoomType:
-		var joinRoomData JoinRoom
-		err := json.Unmarshal(msg, &joinRoomData)
+	case JoinType:
+		var joinData Join
+		err := json.Unmarshal(msg, &joinData)
 		if err != nil {
 			return nil, err
 		}
-		parsedMsg = joinRoomData
-	case SendTextMessageType:
-		var textData SendTextMessage
+	case TextType:
+		var textData Text
 		err := json.Unmarshal(msg, &textData)
 		if err != nil {
 			return nil, err
 		}
-		parsedMsg = textData
 	}
-	return parsedMsg, nil
+	return env, nil
 }
 
 // Messages sent by server
 const (
-	SuccessJoinRoomType    string = "SUCCESS_JOIN_ROOM"
-	ClientListType                = "CLIENT_LIST"
-	ReceiveTextMessageType        = "RECEIVE_TEXT_MESSAGE"
+	SuccessJoinType    string = "SUCCESS_JOIN"
+	SuccessPartType           = "SUCCESS_PART"
+	ReceiveTextType           = "RECEIVE_TEXT"
+	ReceiveClientsType        = "RECEIVE_CLIENTS"
 )
 
-type SuccessJoinRoom struct {
+type SuccessJoin struct {
 	RoomName string `json:"roomName"`
 }
 
-type GetAllClientNames struct {
+type ReceiveClients struct {
 	ClientNames []string `json:"clientNames"`
 }
 
-type ReceiveTextMessage struct {
+type ReceiveText struct {
 	Text       string `json:"text"`
 	ClientName string `json:"clientName"`
 	Id         int    `json:"id"`
 }
 
-func NewSuccessJoinRoomMessage(roomName string) []byte {
-	env := &Envelope{Type: SuccessJoinRoomType}
-	env.Data = &SuccessJoinRoom{roomName}
+func NewSuccessJoinMessage(roomName string) []byte {
+	env := &Message{Type: SuccessJoinType}
+	env.Data = &SuccessJoin{roomName}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }
 
-func NewClientNamesMessage(clientNames []string) []byte {
-	env := &Envelope{Type: ClientListType}
-	env.Data = &GetAllClientNames{clientNames}
+func NewSuccessPartMessage() []byte {
+	env := &Message{Type: SuccessPartType}
+	jsonMsg, _ := json.Marshal(env)
+	return jsonMsg
+}
+
+func NewClientsMessage(clientNames []string) []byte {
+	env := &Message{Type: ReceiveClientsType}
+	env.Data = &ReceiveClients{clientNames}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }
 
 func NewReceiveTextMessage(text string, clientName string, id int) []byte {
-	env := &Envelope{Type: ReceiveTextMessageType}
-	env.Data = &ReceiveTextMessage{text, clientName, id}
+	env := &Message{Type: ReceiveTextType}
+	env.Data = &ReceiveText{text, clientName, id}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }
