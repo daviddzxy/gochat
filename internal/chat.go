@@ -108,8 +108,6 @@ func (cs *ChatServer) Run() {
 				cs.handleJoinMessage(joinData, client)
 			case PartType:
 				cs.handlePartMessage(client)
-			case ClientsType:
-				cs.handleClientsMessage(client)
 			}
 		}
 	}
@@ -121,7 +119,8 @@ func (cs *ChatServer) handleJoinMessage(data Join, c *Client) {
 		_ = cs.removeClientFromRoom(c.id)
 		_ = cs.addClientToRoom(c.id, data.RoomName)
 	}
-	cs.writeToClient(c, NewSuccessJoinMessage(data.RoomName))
+	c.clientName = data.ClientName
+	cs.writeToClient(c, NewSuccessJoinMessage(data.RoomName, cs.chatRooms[data.RoomName].getClientNames()))
 	log.Printf("Client %d joined room %s with name %s.\n", c.id, data.RoomName, data.ClientName)
 }
 
@@ -131,13 +130,6 @@ func (cs *ChatServer) handlePartMessage(c *Client) {
 		log.Printf("Client %d left room %s.\n", c.id, cs.clientsByRoom[c.id].name)
 	} else {
 		log.Println(err)
-	}
-}
-
-func (cs *ChatServer) handleClientsMessage(c *Client) {
-	room := cs.clientsByRoom[c.id]
-	if room != nil {
-		cs.writeToClient(c, NewClientsMessage(room.getClientNames()))
 	}
 }
 
@@ -181,7 +173,6 @@ func (cs *ChatServer) handleTextMessage(data Text, c *Client) {
 	if room != nil {
 		receiveTextMessage := NewReceiveTextMessage(data.Text, c.clientName, idMessageGenerator.generateId())
 		cs.broadcastMessage(room, receiveTextMessage)
-		log.Printf("Message %s broadcaseted in room %s", receiveTextMessage, room.name)
 	}
 }
 

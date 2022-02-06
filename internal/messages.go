@@ -11,10 +11,9 @@ type Message struct {
 
 // Messages sent by client
 const (
-	JoinType    = "JOIN"
-	PartType    = "PART"
-	TextType    = "TEXT"
-	ClientsType = "CLIENTS"
+	JoinType = "JOIN"
+	PartType = "PART"
+	TextType = "TEXT"
 )
 
 type Join struct {
@@ -27,40 +26,42 @@ type Text struct {
 }
 
 func ParseClientMessages(rawMessage []byte) (*Message, error) {
-	var msg json.RawMessage
-	env := &Message{Data: &msg}
-	err := json.Unmarshal(rawMessage, &env)
+	var jsonData json.RawMessage
+	message := &Message{Data: &jsonData}
+	err := json.Unmarshal(rawMessage, &message)
 	if err != nil {
 		return nil, err
 	}
 
-	switch env.Type {
+	switch message.Type {
 	case JoinType:
 		var joinData Join
-		err := json.Unmarshal(msg, &joinData)
+		err := json.Unmarshal(jsonData, &joinData)
 		if err != nil {
 			return nil, err
 		}
+		message.Data = joinData
 	case TextType:
 		var textData Text
-		err := json.Unmarshal(msg, &textData)
+		err := json.Unmarshal(jsonData, &textData)
 		if err != nil {
 			return nil, err
 		}
+		message.Data = textData
 	}
-	return env, nil
+	return message, nil
 }
 
 // Messages sent by server
 const (
-	SuccessJoinType    string = "SUCCESS_JOIN"
-	SuccessPartType           = "SUCCESS_PART"
-	ReceiveTextType           = "RECEIVE_TEXT"
-	ReceiveClientsType        = "RECEIVE_CLIENTS"
+	SuccessJoinType string = "SUCCESS_JOIN"
+	SuccessPartType        = "SUCCESS_PART"
+	ReceiveTextType        = "RECEIVE_TEXT"
 )
 
 type SuccessJoin struct {
-	RoomName string `json:"roomName"`
+	RoomName    string   `json:"roomName"`
+	ClientNames []string `json:"clientNames"`
 }
 
 type ReceiveClients struct {
@@ -73,22 +74,15 @@ type ReceiveText struct {
 	Id         int    `json:"id"`
 }
 
-func NewSuccessJoinMessage(roomName string) []byte {
+func NewSuccessJoinMessage(roomName string, clientNames []string) []byte {
 	env := &Message{Type: SuccessJoinType}
-	env.Data = &SuccessJoin{roomName}
+	env.Data = &SuccessJoin{roomName, clientNames}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }
 
 func NewSuccessPartMessage() []byte {
 	env := &Message{Type: SuccessPartType}
-	jsonMsg, _ := json.Marshal(env)
-	return jsonMsg
-}
-
-func NewClientsMessage(clientNames []string) []byte {
-	env := &Message{Type: ReceiveClientsType}
-	env.Data = &ReceiveClients{clientNames}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }
