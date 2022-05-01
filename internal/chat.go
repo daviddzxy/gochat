@@ -125,9 +125,10 @@ func (cs *ChatServer) handleJoinMessage(data Join, c *Client) {
 }
 
 func (cs *ChatServer) handlePartMessage(c *Client) {
+	room := cs.clientsByRoom[c.id].name
 	if err := cs.removeClientFromRoom(c.id); err == nil {
 		cs.writeToClient(c, NewSuccessPartMessage())
-		log.Printf("Client %d left room %s.\n", c.id, cs.clientsByRoom[c.id].name)
+		log.Printf("Client %d left room %s.\n", c.id, room)
 	} else {
 		log.Println(err)
 	}
@@ -156,8 +157,10 @@ func (cs *ChatServer) addClientToRoom(clientId int, roomName string) error {
 	if r == nil {
 		if cs.chatRooms[roomName] == nil {
 			r = NewRoom(roomName)
-			cs.chatRooms[r.name] = r
+			cs.chatRooms[roomName] = r
 			log.Printf("New room %s has been created.\n", roomName)
+		} else {
+			r = cs.chatRooms[roomName]
 		}
 		r.clients[c.id] = c
 		cs.clientsByRoom[c.id] = r

@@ -64,10 +64,6 @@ type SuccessJoin struct {
 	ClientNames []string `json:"clientNames"`
 }
 
-type ReceiveClients struct {
-	ClientNames []string `json:"clientNames"`
-}
-
 type ReceiveText struct {
 	Text       string `json:"text"`
 	ClientName string `json:"clientName"`
