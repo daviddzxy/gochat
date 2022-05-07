@@ -9,6 +9,11 @@ type Message struct {
 	Data interface{} `json:"data"`
 }
 
+type User struct {
+	Name string `json:"name"`
+	Id   int    `json:"id"`
+}
+
 // Messages sent by client
 const (
 	JoinType = "JOIN"
@@ -60,8 +65,8 @@ const (
 )
 
 type SuccessJoin struct {
-	RoomName    string   `json:"roomName"`
-	ClientNames []string `json:"clientNames"`
+	RoomName string `json:"roomName"`
+	Users    []User `json:"users"`
 }
 
 type ReceiveText struct {
@@ -70,9 +75,9 @@ type ReceiveText struct {
 	Id         int    `json:"id"`
 }
 
-func NewSuccessJoinMessage(roomName string, clientNames []string) []byte {
+func NewSuccessJoinMessage(roomName string, users []User) []byte {
 	env := &Message{Type: SuccessJoinType}
-	env.Data = &SuccessJoin{roomName, clientNames}
+	env.Data = &SuccessJoin{roomName, users}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }

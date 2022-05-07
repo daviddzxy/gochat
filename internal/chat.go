@@ -19,14 +19,14 @@ func NewRoom(name string) *Room {
 	return r
 }
 
-func (r *Room) getClientNames() []string {
-	clientNames := make([]string, len(r.clients))
+func (r *Room) getUsers() []User {
+	users := make([]User, len(r.clients))
 	index := 0
 	for _, c := range r.clients {
-		clientNames[index] = c.clientName
+		users[index] = User{c.clientName, c.id}
 		index += 1
 	}
-	return clientNames
+	return users
 }
 
 type ClientMessage struct {
@@ -120,7 +120,7 @@ func (cs *ChatServer) handleJoinMessage(data Join, c *Client) {
 		_ = cs.addClientToRoom(c.id, data.RoomName)
 	}
 	c.clientName = data.ClientName
-	cs.writeToClient(c, NewSuccessJoinMessage(data.RoomName, cs.chatRooms[data.RoomName].getClientNames()))
+	cs.writeToClient(c, NewSuccessJoinMessage(data.RoomName, cs.chatRooms[data.RoomName].getUsers()))
 	log.Printf("Client %d joined room %s with name %s.\n", c.id, data.RoomName, data.ClientName)
 }
 
