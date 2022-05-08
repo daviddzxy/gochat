@@ -19,11 +19,11 @@ func NewRoom(name string) *Room {
 	return r
 }
 
-func (r *Room) getUsers() []User {
-	users := make([]User, len(r.clients))
+func (r *Room) getClientDetails() []ClientDetails {
+	users := make([]ClientDetails, len(r.clients))
 	index := 0
 	for _, c := range r.clients {
-		users[index] = User{c.clientName, c.id}
+		users[index] = ClientDetails{c.clientName, c.id}
 		index += 1
 	}
 	return users
@@ -38,6 +38,8 @@ type Client struct {
 	id         int
 	conn       *websocket.Conn
 	clientName string
+	//TODO
+	//Get rid of clientName, move it to room
 }
 
 var idClientGenerator = Generator{}
@@ -89,7 +91,9 @@ func (cs *ChatServer) Run() {
 			log.Printf("New connection established: %d.\n", c.id)
 			go cs.readFromClient(c)
 		case clientMsg := <-cs.onClose:
+			room := cs.clientsByRoom[clientMsg.clientId]
 			_ = cs.removeClientFromRoom(clientMsg.clientId)
+			cs.broadcastMessage(room, NewRemoveClientMessage(clientMsg.clientId))
 			cs.closeClient(clientMsg.clientId)
 			log.Printf("Connection %d closed.\n", clientMsg.clientId)
 		case clientMsg := <-cs.onMessage:
@@ -114,21 +118,27 @@ func (cs *ChatServer) Run() {
 }
 
 func (cs *ChatServer) handleJoinMessage(data Join, c *Client) {
+	clientsDetails := []ClientDetails{}
+	if cs.chatRooms[data.RoomName] != nil {
+		clientsDetails = cs.chatRooms[data.RoomName].getClientDetails()
+	}
 	err := cs.addClientToRoom(c.id, data.RoomName)
 	if err != nil && errors.Is(err, ClientAlreadyInRoomError) {
 		_ = cs.removeClientFromRoom(c.id)
 		_ = cs.addClientToRoom(c.id, data.RoomName)
 	}
 	c.clientName = data.ClientName
-	cs.writeToClient(c, NewSuccessJoinMessage(data.RoomName, cs.chatRooms[data.RoomName].getUsers()))
+	cs.writeToClient(c, NewSuccessJoinMessage(data.RoomName, clientsDetails))
+	cs.broadcastMessage(cs.chatRooms[data.RoomName], NewAddClientMessage(c.clientName, c.id))
 	log.Printf("Client %d joined room %s with name %s.\n", c.id, data.RoomName, data.ClientName)
 }
 
 func (cs *ChatServer) handlePartMessage(c *Client) {
-	room := cs.clientsByRoom[c.id].name
+	room := cs.clientsByRoom[c.id]
 	if err := cs.removeClientFromRoom(c.id); err == nil {
 		cs.writeToClient(c, NewSuccessPartMessage())
-		log.Printf("Client %d left room %s.\n", c.id, room)
+		cs.broadcastMessage(room, NewRemoveClientMessage(c.id))
+		log.Printf("Client %d left room %s.\n", c.id, room.name)
 	} else {
 		log.Println(err)
 	}
@@ -174,7 +184,7 @@ func (cs *ChatServer) addClientToRoom(clientId int, roomName string) error {
 func (cs *ChatServer) handleTextMessage(data Text, c *Client) {
 	room := cs.clientsByRoom[c.id]
 	if room != nil {
-		receiveTextMessage := NewReceiveTextMessage(data.Text, c.clientName, idMessageGenerator.generateId())
+		receiveTextMessage := NewReceiveTextMessage(data.Text, c.id, idMessageGenerator.generateId())
 		cs.broadcastMessage(room, receiveTextMessage)
 	}
 }

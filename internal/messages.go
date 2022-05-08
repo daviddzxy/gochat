@@ -9,7 +9,7 @@ type Message struct {
 	Data interface{} `json:"data"`
 }
 
-type User struct {
+type ClientDetails struct {
 	Name string `json:"name"`
 	Id   int    `json:"id"`
 }
@@ -59,23 +59,33 @@ func ParseClientMessages(rawMessage []byte) (*Message, error) {
 
 // Messages sent by server
 const (
-	SuccessJoinType string = "SUCCESS_JOIN"
-	SuccessPartType        = "SUCCESS_PART"
-	ReceiveTextType        = "RECEIVE_TEXT"
+	SuccessJoinType  string = "SUCCESS_JOIN"
+	SuccessPartType         = "SUCCESS_PART"
+	ReceiveTextType         = "RECEIVE_TEXT"
+	AddClientType           = "ADD_CLIENT"
+	RemoveClientType        = "REMOVE_CLIENT"
 )
 
 type SuccessJoin struct {
-	RoomName string `json:"roomName"`
-	Users    []User `json:"users"`
+	RoomName      string          `json:"roomName"`
+	ClientDetails []ClientDetails `json:"clients"`
 }
 
 type ReceiveText struct {
-	Text       string `json:"text"`
-	ClientName string `json:"clientName"`
-	Id         int    `json:"id"`
+	Text     string `json:"text"`
+	ClientId int    `json:"clientId"`
+	TextId   int    `json:"textId"`
 }
 
-func NewSuccessJoinMessage(roomName string, users []User) []byte {
+type AddClient struct {
+	ClientDetail ClientDetails `json:"client"`
+}
+
+type RemoveClient struct {
+	Id int `json:"id"`
+}
+
+func NewSuccessJoinMessage(roomName string, users []ClientDetails) []byte {
 	env := &Message{Type: SuccessJoinType}
 	env.Data = &SuccessJoin{roomName, users}
 	jsonMsg, _ := json.Marshal(env)
@@ -88,9 +98,23 @@ func NewSuccessPartMessage() []byte {
 	return jsonMsg
 }
 
-func NewReceiveTextMessage(text string, clientName string, id int) []byte {
+func NewReceiveTextMessage(text string, clientId int, TextId int) []byte {
 	env := &Message{Type: ReceiveTextType}
-	env.Data = &ReceiveText{text, clientName, id}
+	env.Data = &ReceiveText{text, clientId, TextId}
+	jsonMsg, _ := json.Marshal(env)
+	return jsonMsg
+}
+
+func NewAddClientMessage(clientName string, clientId int) []byte {
+	env := &Message{Type: AddClientType}
+	env.Data = &AddClient{ClientDetails{clientName, clientId}}
+	jsonMsg, _ := json.Marshal(env)
+	return jsonMsg
+}
+
+func NewRemoveClientMessage(clientId int) []byte {
+	env := &Message{Type: RemoveClientType}
+	env.Data = &RemoveClient{clientId}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }
