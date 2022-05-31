@@ -41,8 +41,19 @@ func NewChatRoom(handle string) *room {
 	return r
 }
 
-func (chatRoom *room) createRoomSession(handle string) *RoomSession {
-	return &RoomSession{id: chatRoom.roomSessionIdGenerator.generateId(), handle: handle, room: chatRoom}
+func (r *room) isEmpty() bool {
+	if len(r.roomSessions) == 0 {
+		return true
+	}
+	return false
+}
+
+func (r *room) addRoomSession(rs *RoomSession) {
+	r.roomSessions[rs.id] = rs
+}
+
+func (r *room) removeRoomSession(rs *RoomSession) {
+	delete(r.roomSessions, rs.id)
 }
 
 type ChatServer struct {
@@ -131,6 +142,9 @@ func (cs *ChatServer) Run() {
 			case JoinType:
 				joinData, _ := msg.Data.(Join)
 				cs.handleJoinMessage(joinData, c)
+			case PartType:
+				partData, _ := msg.Data.(Part)
+				cs.handlePartMessage(partData, c)
 			}
 		}
 	}
@@ -140,11 +154,16 @@ func (cs *ChatServer) handleJoinMessage(msg Join, c *Client) {
 	r := cs.chatRooms[msg.RoomHandle]
 	if r == nil {
 		r = NewChatRoom(msg.RoomHandle)
+		cs.chatRooms[msg.RoomHandle] = r
+		log.Printf(
+			"Room %s was created",
+			r.handle,
+		)
 	}
 	rs := c.roomSessions[msg.RoomHandle]
 	if rs == nil {
 		rs := &RoomSession{id: r.roomSessionIdGenerator.generateId(), handle: msg.NewRoomSessionHandle, room: r}
-		r.roomSessions[rs.id] = rs
+		r.addRoomSession(rs)
 		c.roomSessions[r.handle] = rs
 		log.Printf("Client %d joined room %s, with room session id %d, handle %s",
 			c.id,
@@ -159,5 +178,27 @@ func (cs *ChatServer) handleJoinMessage(msg Join, c *Client) {
 			rs.id,
 			rs.handle,
 		)
+	}
+}
+
+func (cs *ChatServer) handlePartMessage(msg Part, c *Client) {
+	rs := c.roomSessions[msg.RoomHandle]
+	if rs != nil {
+		r := rs.room
+		r.removeRoomSession(rs)
+		log.Printf(
+			"Client %d left room %s, with room session id %d, handle %s",
+			c.id,
+			r.handle,
+			rs.id,
+			rs.handle,
+		)
+		if r.isEmpty() {
+			delete(cs.chatRooms, r.handle)
+			log.Printf(
+				"Room %s was destroyed",
+				r.handle,
+			)
+		}
 	}
 }
