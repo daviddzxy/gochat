@@ -13,6 +13,7 @@ type Message struct {
 const (
 	JoinType = "JOIN"
 	PartType = "PART"
+	TextType = "TEXT"
 )
 
 type Join struct {
@@ -22,6 +23,11 @@ type Join struct {
 
 type Part struct {
 	RoomHandle string `json:"roomHandle"`
+}
+
+type Text struct {
+	RoomHandle string `json:"roomHandle"`
+	Content    string `json:"content"`
 }
 
 func ParseClientMessages(rawMessage []byte) (*Message, error) {
@@ -47,6 +53,29 @@ func ParseClientMessages(rawMessage []byte) (*Message, error) {
 			return nil, err
 		}
 		message.Data = partData
+	case TextType:
+		var textData Text
+		err := json.Unmarshal(jsonData, &textData)
+		if err != nil {
+			return nil, err
+		}
+		message.Data = textData
 	}
 	return message, nil
+}
+
+const (
+	ReceiveTextType string = "RECEIVE_TEXT"
+)
+
+type ReceiveText struct {
+	Content       string `json:"content"`
+	RoomSessionId int    `json:"roomSessionId"`
+}
+
+func NewReceiveTextMessage(content string, RoomSessionId int) []byte {
+	env := &Message{Type: ReceiveTextType}
+	env.Data = &ReceiveText{content, RoomSessionId}
+	jsonMsg, _ := json.Marshal(env)
+	return jsonMsg
 }
