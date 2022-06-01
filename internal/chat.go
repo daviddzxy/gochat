@@ -34,19 +34,17 @@ type roomSession struct {
 func (rs *roomSession) writeMessage(m []byte) {
 	err := rs.client.conn.WriteMessage(websocket.TextMessage, m)
 	if err != nil {
-		log.Printf("Unable to send message %s to roomSession with handle %s, id %d belonging to client %d",
-			string(m),
-			rs.handle,
+		log.Printf("Write message to room session failed - {sessionId: %d, clientId %d, message: %s}",
 			rs.id,
 			rs.client.id,
+			string(m),
 		)
 		return
 	}
-	log.Printf("Message %s sent to roomSession with handle %s, id %d belonging to client %d",
-		string(m),
-		rs.handle,
+	log.Printf("Write message to room session - {sessionId: %d, clientId %d, message: %s}",
 		rs.id,
 		rs.client.id,
+		string(m),
 	)
 }
 
@@ -138,7 +136,7 @@ func (cs *ChatServer) openClient(id int, conn *websocket.Conn) {
 	c := NewClient(id, conn)
 	cs.clients[c.id] = c
 	go cs.readFromConnection(c)
-	log.Printf("New connection established: %d.\n", c.id)
+	log.Printf("New connection established - {clientId: %d}", c.id)
 }
 
 func (cs *ChatServer) closeClient(id int) {
@@ -153,10 +151,10 @@ func (cs *ChatServer) Run() {
 	go func() {
 		http.HandleFunc(cs.Pattern, cs.connectionRequestHandler)
 		if err := http.ListenAndServe(cs.Address, nil); err != http.ErrServerClosed {
-			log.Fatalf("Could not start web socket server: %s\n", err)
+			log.Fatalf("Start of web socket server failed - {error: %s}", err)
 		}
 	}()
-	log.Printf("Chat server is listening on %s.\n", cs.Address)
+	log.Printf("Chat server is listening - {address: %s}", cs.Address)
 	clientIdGenerator := Generator{}
 	for {
 		select {
@@ -165,10 +163,14 @@ func (cs *ChatServer) Run() {
 		case clientMsg := <-cs.onClose:
 			cs.closeClient(clientMsg.clientId)
 		case clientMsg := <-cs.onMessage:
-			log.Printf("New message %s received from client %d.\n", string(clientMsg.rawMessage), clientMsg.clientId)
+			log.Printf(
+				"New message received from client - {clientId: %d, message: %s}",
+				clientMsg.clientId,
+				string(clientMsg.rawMessage),
+			)
 			msg, err := ParseClientMessages(clientMsg.rawMessage)
 			if err != nil {
-				log.Printf("Unable to parse client message %s.\n", clientMsg.rawMessage)
+				log.Printf("Failed to parse message - {nessage: %s}", clientMsg.rawMessage)
 			}
 			c := cs.clients[clientMsg.clientId]
 			switch msg.Type {
@@ -192,7 +194,7 @@ func (cs *ChatServer) handleJoinMessage(msg Join, c *client) {
 		r = NewChatRoom(msg.RoomHandle)
 		cs.chatRooms[msg.RoomHandle] = r
 		log.Printf(
-			"Room %s was created",
+			"Room was created - {roomhandle: %s}",
 			r.handle,
 		)
 	}
@@ -206,18 +208,16 @@ func (cs *ChatServer) handleJoinMessage(msg Join, c *client) {
 		}
 		r.addRoomSession(rs)
 		c.roomSessions[r.handle] = rs
-		log.Printf("client %d joined room %s, with room session id %d, handle %s",
+		log.Printf("Client joined room - {clientId: %d, roomSessionId: %d, roomHandle: %s}",
 			c.id,
-			r.handle,
 			rs.id,
-			rs.handle,
+			r.handle,
 		)
 	} else {
-		log.Printf("client %d already in room %s with room session id %d, handle %s",
+		log.Printf("Client already in room - {clientId; %d, roomSessionId: %d, roomHandle: %s}",
 			c.id,
-			r.handle,
 			rs.id,
-			rs.handle,
+			r.handle,
 		)
 	}
 }
@@ -228,16 +228,15 @@ func (cs *ChatServer) handlePartMessage(msg Part, c *client) {
 		r := rs.room
 		r.removeRoomSession(rs)
 		log.Printf(
-			"client %d left room %s, with room session id %d, handle %s",
+			"Client left room - {clientId; %d, roomSessionId: %d, roomHandle: %s}",
 			c.id,
-			r.handle,
 			rs.id,
-			rs.handle,
+			r.handle,
 		)
 		if r.isEmpty() {
 			delete(cs.chatRooms, r.handle)
 			log.Printf(
-				"Room %s was destroyed",
+				"Room was destroyed - {roomHandle: %s}",
 				r.handle,
 			)
 		}
