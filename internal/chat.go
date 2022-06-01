@@ -4,40 +4,61 @@ import (
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
+	"sync"
 )
 
-type ClientMessage struct {
+type clientMessage struct {
 	clientId   int
 	rawMessage []byte
 }
 
-type Client struct {
+type client struct {
 	id           int
 	conn         *websocket.Conn
-	roomSessions map[string]*RoomSession
+	roomSessions map[string]*roomSession
 }
 
-func NewClient(id int, conn *websocket.Conn) *Client {
-	c := &Client{id: id, conn: conn}
-	c.roomSessions = make(map[string]*RoomSession)
+func NewClient(id int, conn *websocket.Conn) *client {
+	c := &client{id: id, conn: conn}
+	c.roomSessions = make(map[string]*roomSession)
 	return c
 }
 
-type RoomSession struct {
+type roomSession struct {
 	id     int
 	handle string
 	room   *room
+	client *client
+}
+
+func (rs *roomSession) writeMessage(m []byte) {
+	err := rs.client.conn.WriteMessage(websocket.TextMessage, m)
+	if err != nil {
+		log.Printf("Unable to send message %s to roomSession with handle %s, id %d belonging to client %d",
+			string(m),
+			rs.handle,
+			rs.id,
+			rs.client.id,
+		)
+		return
+	}
+	log.Printf("Message %s sent to roomSession with handle %s, id %d belonging to client %d",
+		string(m),
+		rs.handle,
+		rs.id,
+		rs.client.id,
+	)
 }
 
 type room struct {
 	handle                 string
-	roomSessions           map[int]*RoomSession
+	roomSessions           map[int]*roomSession
 	roomSessionIdGenerator Generator
 }
 
 func NewChatRoom(handle string) *room {
 	r := &room{handle: handle}
-	r.roomSessions = make(map[int]*RoomSession)
+	r.roomSessions = make(map[int]*roomSession)
 	return r
 }
 
@@ -48,32 +69,44 @@ func (r *room) isEmpty() bool {
 	return false
 }
 
-func (r *room) addRoomSession(rs *RoomSession) {
+func (r *room) addRoomSession(rs *roomSession) {
 	r.roomSessions[rs.id] = rs
 }
 
-func (r *room) removeRoomSession(rs *RoomSession) {
+func (r *room) removeRoomSession(rs *roomSession) {
 	delete(r.roomSessions, rs.id)
+}
+
+func (r *room) broadcastMessage(m []byte) {
+	wg := sync.WaitGroup{}
+	wg.Add(len(r.roomSessions))
+	for _, rs := range r.roomSessions {
+		go func(rs *roomSession) {
+			defer wg.Done()
+			rs.writeMessage(m)
+		}(rs)
+	}
+	wg.Wait()
 }
 
 type ChatServer struct {
 	Address   string
 	Pattern   string
-	clients   map[int]*Client
+	clients   map[int]*client
 	chatRooms map[string]*room
 	onConnect chan *websocket.Conn
-	onClose   chan *ClientMessage
-	onMessage chan *ClientMessage
+	onClose   chan *clientMessage
+	onMessage chan *clientMessage
 	upgrader  *websocket.Upgrader
 }
 
 func NewChatServer(address string, pattern string) *ChatServer {
 	cs := &ChatServer{Address: address, Pattern: pattern}
 	cs.chatRooms = make(map[string]*room)
-	cs.clients = make(map[int]*Client)
+	cs.clients = make(map[int]*client)
 	cs.onConnect = make(chan *websocket.Conn)
-	cs.onClose = make(chan *ClientMessage)
-	cs.onMessage = make(chan *ClientMessage)
+	cs.onClose = make(chan *clientMessage)
+	cs.onMessage = make(chan *clientMessage)
 	cs.upgrader = &websocket.Upgrader{}
 	cs.upgrader.CheckOrigin = func(request *http.Request) bool { return true } // TODO: implement check origin function
 	return cs
@@ -88,10 +121,10 @@ func (cs *ChatServer) connectionRequestHandler(responseWriter http.ResponseWrite
 	cs.onConnect <- conn
 }
 
-func (cs *ChatServer) readFromConnection(c *Client) {
+func (cs *ChatServer) readFromConnection(c *client) {
 	for {
 		_, p, err := c.conn.ReadMessage()
-		msg := &ClientMessage{clientId: c.id, rawMessage: p}
+		msg := &clientMessage{clientId: c.id, rawMessage: p}
 		if err != nil {
 			log.Println(err)
 			cs.onClose <- msg
@@ -145,12 +178,15 @@ func (cs *ChatServer) Run() {
 			case PartType:
 				partData, _ := msg.Data.(Part)
 				cs.handlePartMessage(partData, c)
+			case TextType:
+				textData, _ := msg.Data.(Text)
+				cs.handleTextMessage(textData, c)
 			}
 		}
 	}
 }
 
-func (cs *ChatServer) handleJoinMessage(msg Join, c *Client) {
+func (cs *ChatServer) handleJoinMessage(msg Join, c *client) {
 	r := cs.chatRooms[msg.RoomHandle]
 	if r == nil {
 		r = NewChatRoom(msg.RoomHandle)
@@ -162,17 +198,22 @@ func (cs *ChatServer) handleJoinMessage(msg Join, c *Client) {
 	}
 	rs := c.roomSessions[msg.RoomHandle]
 	if rs == nil {
-		rs := &RoomSession{id: r.roomSessionIdGenerator.generateId(), handle: msg.NewRoomSessionHandle, room: r}
+		rs := &roomSession{
+			id:     r.roomSessionIdGenerator.generateId(),
+			handle: msg.NewRoomSessionHandle,
+			room:   r,
+			client: c,
+		}
 		r.addRoomSession(rs)
 		c.roomSessions[r.handle] = rs
-		log.Printf("Client %d joined room %s, with room session id %d, handle %s",
+		log.Printf("client %d joined room %s, with room session id %d, handle %s",
 			c.id,
 			r.handle,
 			rs.id,
 			rs.handle,
 		)
 	} else {
-		log.Printf("Client %d already in room %s with room session id %d, handle %s",
+		log.Printf("client %d already in room %s with room session id %d, handle %s",
 			c.id,
 			r.handle,
 			rs.id,
@@ -181,13 +222,13 @@ func (cs *ChatServer) handleJoinMessage(msg Join, c *Client) {
 	}
 }
 
-func (cs *ChatServer) handlePartMessage(msg Part, c *Client) {
+func (cs *ChatServer) handlePartMessage(msg Part, c *client) {
 	rs := c.roomSessions[msg.RoomHandle]
 	if rs != nil {
 		r := rs.room
 		r.removeRoomSession(rs)
 		log.Printf(
-			"Client %d left room %s, with room session id %d, handle %s",
+			"client %d left room %s, with room session id %d, handle %s",
 			c.id,
 			r.handle,
 			rs.id,
@@ -200,5 +241,12 @@ func (cs *ChatServer) handlePartMessage(msg Part, c *Client) {
 				r.handle,
 			)
 		}
+	}
+}
+
+func (cs *ChatServer) handleTextMessage(msg Text, c *client) {
+	rs := c.roomSessions[msg.RoomHandle]
+	if rs != nil {
+		rs.room.broadcastMessage(NewReceiveTextMessage(msg.Content, rs.id))
 	}
 }
