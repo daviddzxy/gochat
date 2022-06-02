@@ -208,6 +208,7 @@ func (cs *ChatServer) handleJoinMessage(msg Join, c *client) {
 		}
 		r.addRoomSession(rs)
 		c.roomSessions[r.handle] = rs
+		rs.writeMessage(NewSucessJoin(r.handle))
 		log.Printf("Client joined room - {clientId: %d, roomSessionId: %d, roomHandle: %s}",
 			c.id,
 			rs.id,
@@ -233,6 +234,7 @@ func (cs *ChatServer) handlePartMessage(msg Part, c *client) {
 			rs.id,
 			r.handle,
 		)
+		rs.writeMessage(NewSuccessPart(r.handle))
 		if r.isEmpty() {
 			delete(cs.chatRooms, r.handle)
 			log.Printf(

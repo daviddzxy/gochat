@@ -65,7 +65,9 @@ func ParseClientMessages(rawMessage []byte) (*Message, error) {
 }
 
 const (
-	ReceiveTextType string = "RECEIVE_TEXT"
+	SuccessJoinType string = "SUCCESS_JOIN"
+	SuccessPartType        = "SUCCESS_PART"
+	ReceiveTextType        = "RECEIVE_TEXT"
 )
 
 type ReceiveText struct {
@@ -76,6 +78,28 @@ type ReceiveText struct {
 func NewReceiveTextMessage(content string, RoomSessionId int) []byte {
 	env := &Message{Type: ReceiveTextType}
 	env.Data = &ReceiveText{content, RoomSessionId}
+	jsonMsg, _ := json.Marshal(env)
+	return jsonMsg
+}
+
+type SucessJoin struct {
+	RoomHandle string `json:"roomHandle"`
+}
+
+func NewSucessJoin(roomHandle string) []byte {
+	env := &Message{Type: SuccessJoinType}
+	env.Data = &SucessJoin{roomHandle}
+	jsonMsg, _ := json.Marshal(env)
+	return jsonMsg
+}
+
+type SucessPart struct {
+	RoomHandle string `json:"roomHandle"`
+}
+
+func NewSuccessPart(roomHandle string) []byte {
+	env := &Message{Type: SuccessPartType}
+	env.Data = &SucessPart{roomHandle}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }
