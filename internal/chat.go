@@ -18,6 +18,14 @@ type client struct {
 	roomSessions map[string]*roomSession
 }
 
+func (c *client) addRoomSession(roomHandle string, rs *roomSession) {
+	c.roomSessions[roomHandle] = rs
+}
+
+func (c *client) removeRoomSession(roomHandle string) {
+	delete(c.roomSessions, roomHandle)
+}
+
 func NewClient(id int, conn *websocket.Conn) *client {
 	c := &client{id: id, conn: conn}
 	c.roomSessions = make(map[string]*roomSession)
@@ -207,7 +215,7 @@ func (cs *ChatServer) handleJoinMessage(msg Join, c *client) {
 			client: c,
 		}
 		r.addRoomSession(rs)
-		c.roomSessions[r.handle] = rs
+		c.addRoomSession(r.handle, rs)
 		rs.writeMessage(NewSuccessJoin(r.handle, rs.id))
 		log.Printf("Client joined room - {clientId: %d, roomSessionId: %d, roomHandle: %s}",
 			c.id,
@@ -235,6 +243,7 @@ func (cs *ChatServer) handlePartMessage(msg Part, c *client) {
 			r.handle,
 		)
 		rs.writeMessage(NewSuccessPart(r.handle))
+		c.removeRoomSession(r.handle)
 		if r.isEmpty() {
 			delete(cs.chatRooms, r.handle)
 			log.Printf(
