@@ -17,8 +17,8 @@ const (
 )
 
 type Join struct {
-	RoomHandle           string `json:"roomHandle"`
-	NewRoomSessionHandle string `json:"roomSessionHandle"`
+	RoomHandle    string `json:"roomHandle"`
+	SessionHandle string `json:"roomSessionHandle"`
 }
 
 type Part struct {
@@ -72,34 +72,36 @@ const (
 
 type ReceiveText struct {
 	Content       string `json:"content"`
+	RoomHandle    string `json:"roomHandle"`
 	RoomSessionId int    `json:"roomSessionId"`
 }
 
-func NewReceiveTextMessage(content string, RoomSessionId int) []byte {
+func NewReceiveTextMessage(content string, roomHandle string, RoomSessionId int) []byte {
 	env := &Message{Type: ReceiveTextType}
-	env.Data = &ReceiveText{content, RoomSessionId}
+	env.Data = &ReceiveText{content, roomHandle, RoomSessionId}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }
 
 type SucessJoin struct {
-	RoomHandle string `json:"roomHandle"`
+	RoomHandle    string `json:"roomHandle"`
+	RoomSessionId int    `json:"roomSessionId"`
 }
 
-func NewSucessJoin(roomHandle string) []byte {
+func NewSuccessJoin(roomHandle string, RoomSessionId int) []byte {
 	env := &Message{Type: SuccessJoinType}
-	env.Data = &SucessJoin{roomHandle}
+	env.Data = &SucessJoin{roomHandle, RoomSessionId}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }
 
-type SucessPart struct {
+type SuccessPart struct {
 	RoomHandle string `json:"roomHandle"`
 }
 
 func NewSuccessPart(roomHandle string) []byte {
 	env := &Message{Type: SuccessPartType}
-	env.Data = &SucessPart{roomHandle}
+	env.Data = &SuccessPart{roomHandle}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }

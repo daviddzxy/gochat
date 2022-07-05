@@ -202,13 +202,13 @@ func (cs *ChatServer) handleJoinMessage(msg Join, c *client) {
 	if rs == nil {
 		rs := &roomSession{
 			id:     r.roomSessionIdGenerator.generateId(),
-			handle: msg.NewRoomSessionHandle,
+			handle: msg.SessionHandle,
 			room:   r,
 			client: c,
 		}
 		r.addRoomSession(rs)
 		c.roomSessions[r.handle] = rs
-		rs.writeMessage(NewSucessJoin(r.handle))
+		rs.writeMessage(NewSuccessJoin(r.handle, rs.id))
 		log.Printf("Client joined room - {clientId: %d, roomSessionId: %d, roomHandle: %s}",
 			c.id,
 			rs.id,
@@ -248,6 +248,6 @@ func (cs *ChatServer) handlePartMessage(msg Part, c *client) {
 func (cs *ChatServer) handleTextMessage(msg Text, c *client) {
 	rs := c.roomSessions[msg.RoomHandle]
 	if rs != nil {
-		rs.room.broadcastMessage(NewReceiveTextMessage(msg.Content, rs.id))
+		rs.room.broadcastMessage(NewReceiveTextMessage(msg.Content, msg.RoomHandle, rs.id))
 	}
 }
