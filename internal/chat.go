@@ -42,10 +42,11 @@ type roomSession struct {
 func (rs *roomSession) writeMessage(m []byte) {
 	err := rs.client.conn.WriteMessage(websocket.TextMessage, m)
 	if err != nil {
-		log.Printf("Write message to room session failed - {sessionId: %d, clientId %d, message: %s}",
+		log.Printf("Write message to room session failed - {sessionId: %d, clientId %d, message: %s, error: %s}",
 			rs.id,
 			rs.client.id,
 			string(m),
+			err,
 		)
 		return
 	}
@@ -178,7 +179,7 @@ func (cs *ChatServer) Run() {
 			)
 			msg, err := ParseClientMessages(clientMsg.rawMessage)
 			if err != nil {
-				log.Printf("Failed to parse message - {nessage: %s}", clientMsg.rawMessage)
+				log.Printf("Failed to parse message - {nessage: %s, error: %s}", clientMsg.rawMessage, err)
 			}
 			c := cs.clients[clientMsg.clientId]
 			switch msg.Type {
