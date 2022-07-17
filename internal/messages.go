@@ -9,7 +9,7 @@ type Message struct {
 	Data interface{} `json:"data"`
 }
 
-// Messages sent by client
+// Messages sent by Client
 const (
 	JoinType = "JOIN"
 	PartType = "PART"
@@ -84,13 +84,14 @@ func NewReceiveTextMessage(content string, roomHandle string, RoomSessionId int)
 }
 
 type SucessJoin struct {
-	RoomHandle    string `json:"roomHandle"`
-	RoomSessionId int    `json:"roomSessionId"`
+	RoomHandle    string         `json:"roomHandle"`
+	RoomSessionId int            `json:"roomSessionId"`
+	RoomSessions  []*roomSession `json:"roomSessions"`
 }
 
-func NewSuccessJoin(roomHandle string, RoomSessionId int) []byte {
+func NewSuccessJoin(roomHandle string, RoomSessionId int, roomSessions []*roomSession) []byte {
 	env := &Message{Type: SuccessJoinType}
-	env.Data = &SucessJoin{roomHandle, RoomSessionId}
+	env.Data = &SucessJoin{roomHandle, RoomSessionId, roomSessions}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }

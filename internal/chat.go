@@ -33,26 +33,26 @@ func NewClient(id int, conn *websocket.Conn) *client {
 }
 
 type roomSession struct {
-	id     int
-	handle string
-	room   *room
-	client *client
+	Id     int     `json:"id"`
+	Handle string  `json:"handle"`
+	Room   *room   `json:"-"`
+	Client *client `json:"-"`
 }
 
 func (rs *roomSession) writeMessage(m []byte) {
-	err := rs.client.conn.WriteMessage(websocket.TextMessage, m)
+	err := rs.Client.conn.WriteMessage(websocket.TextMessage, m)
 	if err != nil {
 		log.Printf("Write message to room session failed - {sessionId: %d, clientId %d, message: %s, error: %s}",
-			rs.id,
-			rs.client.id,
+			rs.Id,
+			rs.Client.id,
 			string(m),
 			err,
 		)
 		return
 	}
 	log.Printf("Write message to room session - {sessionId: %d, clientId %d, message: %s}",
-		rs.id,
-		rs.client.id,
+		rs.Id,
+		rs.Client.id,
 		string(m),
 	)
 }
@@ -77,11 +77,21 @@ func (r *room) isEmpty() bool {
 }
 
 func (r *room) addRoomSession(rs *roomSession) {
-	r.roomSessions[rs.id] = rs
+	r.roomSessions[rs.Id] = rs
 }
 
 func (r *room) removeRoomSession(rs *roomSession) {
-	delete(r.roomSessions, rs.id)
+	delete(r.roomSessions, rs.Id)
+}
+
+func (r *room) getRoomSessionsSlice() []*roomSession {
+	roomsSessions := make([]*roomSession, len(r.roomSessions))
+	i := 0
+	for _, val := range r.roomSessions {
+		roomsSessions[i] = val
+		i = i + 1
+	}
+	return roomsSessions
 }
 
 func (r *room) broadcastMessage(m []byte) {
@@ -173,7 +183,7 @@ func (cs *ChatServer) Run() {
 			cs.closeClient(clientMsg.clientId)
 		case clientMsg := <-cs.onMessage:
 			log.Printf(
-				"New message received from client - {clientId: %d, message: %s}",
+				"New message received from Client - {clientId: %d, message: %s}",
 				clientMsg.clientId,
 				string(clientMsg.rawMessage),
 			)
@@ -203,30 +213,30 @@ func (cs *ChatServer) handleJoinMessage(msg Join, c *client) {
 		r = NewChatRoom(msg.RoomHandle)
 		cs.chatRooms[msg.RoomHandle] = r
 		log.Printf(
-			"Room was created - {roomhandle: %s}",
+			"room was created - {roomhandle: %s}",
 			r.handle,
 		)
 	}
 	rs := c.roomSessions[msg.RoomHandle]
 	if rs == nil {
 		rs := &roomSession{
-			id:     r.roomSessionIdGenerator.generateId(),
-			handle: msg.SessionHandle,
-			room:   r,
-			client: c,
+			Id:     r.roomSessionIdGenerator.generateId(),
+			Handle: msg.SessionHandle,
+			Room:   r,
+			Client: c,
 		}
 		r.addRoomSession(rs)
 		c.addRoomSession(r.handle, rs)
-		rs.writeMessage(NewSuccessJoin(r.handle, rs.id))
+		rs.writeMessage(NewSuccessJoin(r.handle, rs.Id, r.getRoomSessionsSlice()))
 		log.Printf("Client joined room - {clientId: %d, roomSessionId: %d, roomHandle: %s}",
 			c.id,
-			rs.id,
+			rs.Id,
 			r.handle,
 		)
 	} else {
 		log.Printf("Client already in room - {clientId; %d, roomSessionId: %d, roomHandle: %s}",
 			c.id,
-			rs.id,
+			rs.Id,
 			r.handle,
 		)
 	}
@@ -235,12 +245,12 @@ func (cs *ChatServer) handleJoinMessage(msg Join, c *client) {
 func (cs *ChatServer) handlePartMessage(msg Part, c *client) {
 	rs := c.roomSessions[msg.RoomHandle]
 	if rs != nil {
-		r := rs.room
+		r := rs.Room
 		r.removeRoomSession(rs)
 		log.Printf(
 			"Client left room - {clientId; %d, roomSessionId: %d, roomHandle: %s}",
 			c.id,
-			rs.id,
+			rs.Id,
 			r.handle,
 		)
 		rs.writeMessage(NewSuccessPart(r.handle))
@@ -248,7 +258,7 @@ func (cs *ChatServer) handlePartMessage(msg Part, c *client) {
 		if r.isEmpty() {
 			delete(cs.chatRooms, r.handle)
 			log.Printf(
-				"Room was destroyed - {roomHandle: %s}",
+				"room was destroyed - {roomHandle: %s}",
 				r.handle,
 			)
 		}
@@ -258,6 +268,6 @@ func (cs *ChatServer) handlePartMessage(msg Part, c *client) {
 func (cs *ChatServer) handleTextMessage(msg Text, c *client) {
 	rs := c.roomSessions[msg.RoomHandle]
 	if rs != nil {
-		rs.room.broadcastMessage(NewReceiveTextMessage(msg.Content, msg.RoomHandle, rs.id))
+		rs.Room.broadcastMessage(NewReceiveTextMessage(msg.Content, msg.RoomHandle, rs.Id))
 	}
 }
