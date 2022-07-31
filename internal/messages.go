@@ -65,9 +65,11 @@ func ParseClientMessages(rawMessage []byte) (*Message, error) {
 }
 
 const (
-	SuccessJoinType string = "SUCCESS_JOIN"
-	SuccessPartType        = "SUCCESS_PART"
-	ReceiveTextType        = "RECEIVE_TEXT"
+	SuccessJoinType     string = "SUCCESS_JOIN"
+	SuccessPartType            = "SUCCESS_PART"
+	ReceiveTextType            = "RECEIVE_TEXT"
+	RoomSessionJoinType        = "ROOM_SESSION_JOIN"
+	RoomSessionPartType        = "ROOM_SESSION_PART"
 )
 
 type ReceiveText struct {
@@ -84,12 +86,12 @@ func NewReceiveTextMessage(content string, roomHandle string, RoomSessionId int)
 }
 
 type SucessJoin struct {
-	RoomHandle    string         `json:"roomHandle"`
-	RoomSessionId int            `json:"roomSessionId"`
-	RoomSessions  []*roomSession `json:"roomSessions"`
+	RoomHandle    string               `json:"roomHandle"`
+	RoomSessionId int                  `json:"roomSessionId"`
+	RoomSessions  map[int]*roomSession `json:"roomSessions"`
 }
 
-func NewSuccessJoin(roomHandle string, RoomSessionId int, roomSessions []*roomSession) []byte {
+func NewSuccessJoin(roomHandle string, RoomSessionId int, roomSessions map[int]*roomSession) []byte {
 	env := &Message{Type: SuccessJoinType}
 	env.Data = &SucessJoin{roomHandle, RoomSessionId, roomSessions}
 	jsonMsg, _ := json.Marshal(env)
@@ -103,6 +105,30 @@ type SuccessPart struct {
 func NewSuccessPart(roomHandle string) []byte {
 	env := &Message{Type: SuccessPartType}
 	env.Data = &SuccessPart{roomHandle}
+	jsonMsg, _ := json.Marshal(env)
+	return jsonMsg
+}
+
+type RoomSessionJoin struct {
+	RoomHandle  string       `json:"roomHandle"`
+	RoomSession *roomSession `json:"roomSession"`
+}
+
+func NewRoomSessionJoin(roomHandle string, roomSession *roomSession) []byte {
+	env := &Message{Type: RoomSessionJoinType}
+	env.Data = &RoomSessionJoin{roomHandle, roomSession}
+	jsonMsg, _ := json.Marshal(env)
+	return jsonMsg
+}
+
+type RoomSessionPart struct {
+	RoomHandle    string `json:"roomHandle"`
+	RoomSessionId int    `json:"roomSessionId"`
+}
+
+func NewRoomSessionPart(roomHandle string, roomSessionId int) []byte {
+	env := &Message{Type: RoomSessionPartType}
+	env.Data = &RoomSessionPart{roomHandle, roomSessionId}
 	jsonMsg, _ := json.Marshal(env)
 	return jsonMsg
 }
