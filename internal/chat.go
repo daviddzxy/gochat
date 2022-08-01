@@ -156,6 +156,29 @@ func (cs *ChatServer) closeClient(id int) {
 	delete(cs.clients, id)
 }
 
+func (cs *ChatServer) terminateAllClientSessions(id int) {
+	c := cs.clients[id]
+	for _, rs := range c.roomSessions {
+		r := rs.Room
+		rs.Room.removeRoomSession(rs)
+		c.removeRoomSession(rs.Room.handle)
+		r.broadcastMessage(NewRoomSessionPart(r.handle, rs.Id))
+		log.Printf(
+			"Client left room - {clientId; %d, roomSessionId: %d, roomHandle: %s}",
+			c.id,
+			rs.Id,
+			r.handle,
+		)
+		if r.isEmpty() {
+			delete(cs.chatRooms, r.handle)
+			log.Printf(
+				"Room was destroyed - {roomHandle: %s}",
+				r.handle,
+			)
+		}
+	}
+}
+
 func (cs *ChatServer) Run() {
 	go func() {
 		http.HandleFunc(cs.Pattern, cs.connectionRequestHandler)
@@ -170,6 +193,7 @@ func (cs *ChatServer) Run() {
 		case conn := <-cs.onConnect:
 			cs.openClient(clientIdGenerator.generateId(), conn)
 		case clientMsg := <-cs.onClose:
+			cs.terminateAllClientSessions(clientMsg.clientId)
 			cs.closeClient(clientMsg.clientId)
 		case clientMsg := <-cs.onMessage:
 			log.Printf(
@@ -250,7 +274,7 @@ func (cs *ChatServer) handlePartMessage(msg Part, c *client) {
 		if r.isEmpty() {
 			delete(cs.chatRooms, r.handle)
 			log.Printf(
-				"room was destroyed - {roomHandle: %s}",
+				"Room was destroyed - {roomHandle: %s}",
 				r.handle,
 			)
 		}

@@ -9,7 +9,6 @@ type Message struct {
 	Data interface{} `json:"data"`
 }
 
-// Messages sent by Client
 const (
 	JoinType = "JOIN"
 	PartType = "PART"
