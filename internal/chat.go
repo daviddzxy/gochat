@@ -97,8 +97,8 @@ func (r *Room) broadcastMessage(m []byte) {
 }
 
 type ChatServer struct {
-	Address   string
-	Pattern   string
+	Host      string
+	Port      string
 	clients   map[int]*client
 	chatRooms map[string]*Room
 	onConnect chan *websocket.Conn
@@ -107,8 +107,8 @@ type ChatServer struct {
 	upgrader  *websocket.Upgrader
 }
 
-func NewChatServer(address string, pattern string) *ChatServer {
-	cs := &ChatServer{Address: address, Pattern: pattern}
+func NewChatServer(host string, port string) *ChatServer {
+	cs := &ChatServer{Host: host, Port: port}
 	cs.chatRooms = make(map[string]*Room)
 	cs.clients = make(map[int]*client)
 	cs.onConnect = make(chan *websocket.Conn)
@@ -180,13 +180,14 @@ func (cs *ChatServer) terminateAllClientSessions(id int) {
 }
 
 func (cs *ChatServer) Run() {
+	url := cs.Host + ":" + cs.Port
 	go func() {
-		http.HandleFunc(cs.Pattern, cs.connectionRequestHandler)
-		if err := http.ListenAndServe(cs.Address, nil); err != http.ErrServerClosed {
+		http.HandleFunc("/", cs.connectionRequestHandler)
+		if err := http.ListenAndServe(url, nil); err != http.ErrServerClosed {
 			log.Fatalf("Start of web socket server failed - {error: %s}", err)
 		}
 	}()
-	log.Printf("Chat server is listening - {address: %s}", cs.Address)
+	log.Printf("Chat server is listening - {address: %s}", url)
 	clientIdGenerator := Generator{}
 	for {
 		select {
