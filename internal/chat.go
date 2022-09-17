@@ -35,7 +35,7 @@ func NewClient(id int, conn *websocket.Conn) *client {
 type roomSession struct {
 	Id     int     `json:"id"`
 	Handle string  `json:"handle"`
-	Room   *room   `json:"-"`
+	Room   *Room   `json:"-"`
 	Client *client `json:"-"`
 }
 
@@ -57,34 +57,34 @@ func (rs *roomSession) writeMessage(m []byte) {
 	)
 }
 
-type room struct {
+type Room struct {
 	handle                 string
 	roomSessions           map[int]*roomSession
 	roomSessionIdGenerator Generator
 }
 
-func NewChatRoom(handle string) *room {
-	r := &room{handle: handle}
+func NewChatRoom(handle string) *Room {
+	r := &Room{handle: handle}
 	r.roomSessions = make(map[int]*roomSession)
 	return r
 }
 
-func (r *room) isEmpty() bool {
+func (r *Room) isEmpty() bool {
 	if len(r.roomSessions) == 0 {
 		return true
 	}
 	return false
 }
 
-func (r *room) addRoomSession(rs *roomSession) {
+func (r *Room) addRoomSession(rs *roomSession) {
 	r.roomSessions[rs.Id] = rs
 }
 
-func (r *room) removeRoomSession(rs *roomSession) {
+func (r *Room) removeRoomSession(rs *roomSession) {
 	delete(r.roomSessions, rs.Id)
 }
 
-func (r *room) broadcastMessage(m []byte) {
+func (r *Room) broadcastMessage(m []byte) {
 	wg := sync.WaitGroup{}
 	wg.Add(len(r.roomSessions))
 	for _, rs := range r.roomSessions {
@@ -100,7 +100,7 @@ type ChatServer struct {
 	Address   string
 	Pattern   string
 	clients   map[int]*client
-	chatRooms map[string]*room
+	chatRooms map[string]*Room
 	onConnect chan *websocket.Conn
 	onClose   chan *clientMessage
 	onMessage chan *clientMessage
@@ -109,7 +109,7 @@ type ChatServer struct {
 
 func NewChatServer(address string, pattern string) *ChatServer {
 	cs := &ChatServer{Address: address, Pattern: pattern}
-	cs.chatRooms = make(map[string]*room)
+	cs.chatRooms = make(map[string]*Room)
 	cs.clients = make(map[int]*client)
 	cs.onConnect = make(chan *websocket.Conn)
 	cs.onClose = make(chan *clientMessage)
@@ -227,7 +227,7 @@ func (cs *ChatServer) handleJoinMessage(msg Join, c *client) {
 		r = NewChatRoom(msg.RoomHandle)
 		cs.chatRooms[msg.RoomHandle] = r
 		log.Printf(
-			"room was created - {roomhandle: %s}",
+			"Room was created - {roomhandle: %s}",
 			r.handle,
 		)
 	}
