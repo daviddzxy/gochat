@@ -12,22 +12,22 @@ type clientMessage struct {
 	rawMessage []byte
 }
 
-type client struct {
+type Client struct {
 	id           int
 	conn         *websocket.Conn
 	roomSessions map[string]*roomSession
 }
 
-func (c *client) addRoomSession(roomHandle string, rs *roomSession) {
+func (c *Client) addRoomSession(roomHandle string, rs *roomSession) {
 	c.roomSessions[roomHandle] = rs
 }
 
-func (c *client) removeRoomSession(roomHandle string) {
+func (c *Client) removeRoomSession(roomHandle string) {
 	delete(c.roomSessions, roomHandle)
 }
 
-func NewClient(id int, conn *websocket.Conn) *client {
-	c := &client{id: id, conn: conn}
+func NewClient(id int, conn *websocket.Conn) *Client {
+	c := &Client{id: id, conn: conn}
 	c.roomSessions = make(map[string]*roomSession)
 	return c
 }
@@ -36,7 +36,7 @@ type roomSession struct {
 	Id     int     `json:"id"`
 	Handle string  `json:"handle"`
 	Room   *Room   `json:"-"`
-	Client *client `json:"-"`
+	Client *Client `json:"-"`
 }
 
 func (rs *roomSession) writeMessage(m []byte) {
@@ -99,7 +99,7 @@ func (r *Room) broadcastMessage(m []byte) {
 type ChatServer struct {
 	Host      string
 	Port      string
-	clients   map[int]*client
+	clients   map[int]*Client
 	chatRooms map[string]*Room
 	onConnect chan *websocket.Conn
 	onClose   chan *clientMessage
@@ -110,7 +110,7 @@ type ChatServer struct {
 func NewChatServer(host string, port string) *ChatServer {
 	cs := &ChatServer{Host: host, Port: port}
 	cs.chatRooms = make(map[string]*Room)
-	cs.clients = make(map[int]*client)
+	cs.clients = make(map[int]*Client)
 	cs.onConnect = make(chan *websocket.Conn)
 	cs.onClose = make(chan *clientMessage)
 	cs.onMessage = make(chan *clientMessage)
@@ -128,7 +128,7 @@ func (cs *ChatServer) connectionRequestHandler(responseWriter http.ResponseWrite
 	cs.onConnect <- conn
 }
 
-func (cs *ChatServer) readFromConnection(c *client) {
+func (cs *ChatServer) readFromConnection(c *Client) {
 	for {
 		_, p, err := c.conn.ReadMessage()
 		msg := &clientMessage{clientId: c.id, rawMessage: p}
@@ -222,7 +222,7 @@ func (cs *ChatServer) Run() {
 	}
 }
 
-func (cs *ChatServer) handleJoinMessage(msg Join, c *client) {
+func (cs *ChatServer) handleJoinMessage(msg Join, c *Client) {
 	r := cs.chatRooms[msg.RoomHandle]
 	if r == nil {
 		r = NewChatRoom(msg.RoomHandle)
@@ -258,7 +258,7 @@ func (cs *ChatServer) handleJoinMessage(msg Join, c *client) {
 	}
 }
 
-func (cs *ChatServer) handlePartMessage(msg Part, c *client) {
+func (cs *ChatServer) handlePartMessage(msg Part, c *Client) {
 	rs := c.roomSessions[msg.RoomHandle]
 	if rs != nil {
 		r := rs.Room
@@ -282,7 +282,7 @@ func (cs *ChatServer) handlePartMessage(msg Part, c *client) {
 	}
 }
 
-func (cs *ChatServer) handleTextMessage(msg Text, c *client) {
+func (cs *ChatServer) handleTextMessage(msg Text, c *Client) {
 	rs := c.roomSessions[msg.RoomHandle]
 	if rs != nil {
 		rs.Room.broadcastMessage(NewReceiveTextMessage(msg.Content, msg.RoomHandle, rs.Id))
